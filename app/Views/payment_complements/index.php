@@ -1,0 +1,5 @@
+<div class="page-title clearfix"><h1 class="pull-left">Complementos de Pago</h1><div class="title-button-group"><?php echo modal_anchor(get_uri('payment_complements/create'),"<i data-feather='plus-circle' class='icon-16'></i> Nuevo complemento",['class'=>'btn btn-default','title'=>'Nuevo Complemento de Pago','data-modal-class'=>'modal-sm']); ?></div></div>
+<div class="alert alert-info">Prepare borradores, consulte Complementos timbrados y dé seguimiento a sus solicitudes de cancelación fiscal.</div>
+<div class="card"><div class="table-responsive"><table id="payment-complements-table" class="display" width="100%"></table></div></div>
+<script>$(function(){$('#payment-complements-table').appTable({source:'<?php echo site_url('payment_complements/list_data'); ?>',columns:[{title:'Complemento'},{title:'Fecha'},{title:'Cliente'},{title:'Pago administrativo'},{title:'Monto'},{title:'UUID'},{title:'Estado'},{title:'Cancelación'},{title:'Acciones',class:'text-center'}]});});</script>
+<?php echo view('fiscal/pdf_regeneration_modal',['configure_pdf_allowed'=>$configure_pdf_allowed??false]); ?>

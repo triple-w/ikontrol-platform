@@ -1,0 +1,3 @@
+<?php
+namespace App\Database\Migrations;use CodeIgniter\Database\Migration;
+final class BackfillPacCreditSnapshots extends Migration{public function up(){if(!$this->db->tableExists('fiscal_pac_credit_snapshots'))return;$rows=$this->db->table('fiscal_pac_credit_consultations')->select('provider,environment,available_credits,consulted_at,provider_code')->get()->getResultArray();foreach($rows as$r)if(!$this->db->table('fiscal_pac_credit_snapshots')->where(['provider'=>$r['provider'],'environment'=>$r['environment'],'consulted_at'=>$r['consulted_at']])->countAllResults())$this->db->table('fiscal_pac_credit_snapshots')->insert($r+['created_at'=>$r['consulted_at']]);}public function down(){}}

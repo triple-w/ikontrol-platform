@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="1" Fecha="2026-08-13T15:17:00" FormaPago="99" SubTotal="11976.00" Moneda="MXN" Total="13892.16" TipoDeComprobante="I" Exportacion="01" MetodoPago="PPD" LugarExpedicion="97130">
+  <cfdi:Emisor Rfc="DOLD860620EW7" Nombre="DENNISSE MILDRETH DOMINGUEZ LOPEZ" RegimenFiscal="612"/>
+  <cfdi:Receptor Rfc="OTC080114C30" Nombre="EXPERIENCIAS XCARET PARQUES" DomicilioFiscalReceptor="77710" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="53111600" Cantidad="12.000000" ClaveUnidad="PR" Unidad="PAR" Descripcion="TENIS ANTIDERRAPANTE XELS" ValorUnitario="998.000000" Importe="11976.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="11976.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="1916.16"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="1916.16">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="11976.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="1916.16"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+</cfdi:Comprobante>

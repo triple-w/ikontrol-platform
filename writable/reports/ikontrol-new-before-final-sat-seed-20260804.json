@@ -1,0 +1,64 @@
+{
+    "migrations": 48,
+    "max_batch": 25,
+    "clients": 1,
+    "items": 2,
+    "profiles": 2,
+    "series": 2,
+    "documents": 19,
+    "legacy_batches": 0,
+    "legacy_mappings": 0,
+    "rate": {
+        "COLUMN_TYPE": "decimal(18,6)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "0.000000"
+    },
+    "schemas": {
+        "items": "d25c804f6345475832d5f19f4fe89816c156aca77b053b32a7fb0f1524c59585",
+        "legacy_batches": "4be7f1ecdfe4c71611b1086e2eefd8381499aba5bb72b404382355a02aded628",
+        "legacy_mappings": "dd045a06cc46cd52b9cd9dfa9f8c6f99fa59e58f81f634ebcd384f7c84014fb9"
+    },
+    "sat": {
+        "sat_tax_codes": {
+            "count": 3,
+            "hash": "d4399dde0d1bbd13b991e8e8184eb4eefec1021f8c5e4abebc4a1adec37f19fe"
+        },
+        "sat_tax_factor_types": {
+            "count": 3,
+            "hash": "463978d3ddf691bc2f063a21db6e06ebb2f62760a8ca2f21149dca6dd12db4d6"
+        },
+        "sat_tax_regimes": {
+            "count": 9,
+            "hash": "70825288019a2026a72729a5a4a26c2c43394b3b8c88f9e990fb7e397c28c614"
+        },
+        "sat_cfdi_uses": {
+            "count": 5,
+            "hash": "f5fbc63a2f90472e06badf69507f9aeb47d5f50cb635aba030ed751f35d0a0c6"
+        },
+        "sat_product_service_keys": {
+            "count": 52839,
+            "hash": "77bcabb15fd180c6b986745ff4f2af17ee6ce4bc99996f37e1a8ade891dfdbcb"
+        },
+        "sat_unit_keys": {
+            "count": 2418,
+            "hash": "05bd4dd86f8ff4139c849be58ef3a304417df3402ad6c5ae4e6ef048674e604f"
+        },
+        "sat_tax_object_codes": {
+            "count": 4,
+            "hash": "7974b1d66d3f3d5f8023fc26c8415695c7632a486bb89c09f91fa54ca39a637c"
+        },
+        "sat_payment_forms": {
+            "count": 5,
+            "hash": "75c514859b960a0508d2ee7a918ef780e7bc3576b4fba738eaafe37d51666a72"
+        },
+        "sat_payment_methods": {
+            "count": 2,
+            "hash": "92b80fe7eb6089c43bf974cf8a191ca4ec613caef44e9ef03ffa7d20c3e67919"
+        },
+        "sat_currencies": {
+            "count": 3,
+            "hash": "128e673c1e4e34170944460a6fd23f9b65b4b51983981de6448c0c455e01ec2c"
+        }
+    },
+    "dold": 0
+}

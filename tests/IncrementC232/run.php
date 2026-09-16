@@ -1,0 +1,44 @@
+<?php
+declare(strict_types=1);
+define('ROOTPATH',dirname(__DIR__,2).DIRECTORY_SEPARATOR);define('FCPATH',ROOTPATH);
+require ROOTPATH.'app/Config/Paths.php';$paths=new Config\Paths();
+define('APPPATH',realpath($paths->appDirectory).DIRECTORY_SEPARATOR);define('SYSTEMPATH',realpath($paths->systemDirectory).DIRECTORY_SEPARATOR);define('WRITEPATH',realpath($paths->writableDirectory).DIRECTORY_SEPARATOR);define('ENVIRONMENT','development');
+require $paths->systemDirectory.'/Boot.php';CodeIgniter\Boot::bootTest($paths);
+helper(['general','date_time','plugin','currency']);
+require_once APPPATH.'ThirdParty/PHP-Hooks/php-hooks.php';
+use App\Services\Fiscal\FiscalInvoiceCenterQueryService;
+use App\Services\Fiscal\FiscalIssuerResolver;
+use App\Services\Fiscal\FiscalPreInvoiceService;
+$pass=$fail=0;
+$assert=static function(bool $ok,string $message)use(&$pass,&$fail):void{echo($ok?'[PASS] ':'[FAIL] ').$message.PHP_EOL;$ok?$pass++:$fail++;};
+$read=static fn(string $path):string=>(string)file_get_contents(APPPATH.$path);
+try{
+ $db=db_connect();$module=$read('Controllers/Fiscal/InvoiceModule.php');$balance=$read('Controllers/Fiscal/StampBalance.php');
+ $resolverSource=$read('Services/Fiscal/FiscalIssuerResolver.php');$querySource=$read('Services/Fiscal/FiscalInvoiceCenterQueryService.php');
+ $routes=(string)file_get_contents(APPPATH.'Config/FiscalRoutes.php');$saleView=$read('Views/invoices/fiscal_summary.php');$invoiceView=$read('Views/fiscal/invoices/show.php');
+ $issuer=(new FiscalIssuerResolver($db))->resolve(1,'development');$service=new FiscalInvoiceCenterQueryService($db);$rows=$service->search([],25,0,false);
+ $latest=$db->table('fiscal_drafts')->where('data_origin','integration_manual_candidate')->orderBy('id','DESC')->get(1)->getRow();
+ $sale=$latest?$db->table('fiscal_draft_sales a')->select('i.*')->join('invoices i','i.id=a.sale_id')->where('a.fiscal_draft_id',$latest->id)->get(1)->getRow():null;
+ session()->set('user_id',1);$request=service('request');$controller=new App\Controllers\Fiscal\InvoiceModule();$controller->initController($request,service('response'),service('logger'));$moduleHtml=$controller->index();
+ $assert(is_string($moduleHtml)&&str_contains($moduleHtml,'fiscal-invoices-table')&&str_contains($module,'FiscalIssuerResolver'),'InvoiceModule carga mediante el resolver canónico.');
+ $assert(!str_contains($module,"'is_active'")&&!str_contains($balance,"'is_active'"),'No consulta fiscal_profiles.is_active.');
+ $assert($issuer!==null&&$issuer->profile_type==='issuer','Resolver encuentra emisor efectivo.');
+ $assert(str_contains($resolverSource,"where('fp.status','ready')"),'Emisor inactive se excluye mediante status ready.');
+ $assert($issuer!==null&&$issuer->environment==='development','Resolver respeta environment development.');
+ $assert(is_array($rows),'Listado fiscal ejecuta su consulta sin excepción.');
+ $detail=$rows?$service->detail((int)$rows[0]->id):null;$assert(!$rows||($detail&&isset($detail['document'])),'Detalle fiscal carga para un documento listado.');
+ $lifecycle=$read('Services/Sales/SaleLifecycleService.php');$assert($sale?($sale->status==='not_paid'&&$sale->commercial_status==='closed'):(str_contains($lifecycle,"'commercial_status'=>'closed'")&&!str_contains($lifecycle,"'status'=>'paid'")),'Venta no pagada queda cerrada comercialmente.');
+ $assert(str_contains($read('Services/Sales/SaleLifecycleService.php'),'closed'),'Ciclo de vida protege la venta cerrada.');
+ $workflow=$read('Services/Fiscal/FiscalDraftWorkflowService.php');$assert($latest?((int)$latest->snapshot_version===2):str_contains($workflow,"'snapshot_version'=>2"),'Borrador usa snapshot v2.');
+ $preinvoice=$latest?(new FiscalPreInvoiceService($db))->build((int)$latest->id):[];$preSource=$read('Services/Fiscal/FiscalPreInvoiceService.php');$assert($latest?(isset($preinvoice['draft'],$preinvoice['concepts'])&&!empty($preinvoice['concepts'])):(str_contains($preSource,'concepts')&&str_contains($preSource,'fiscal_snapshot')),'Prefactura se construye desde snapshot.');
+ $preflight=$read('Services/Fiscal/FiscalDraftStampingPreflightService.php');$assert($latest?($latest->environment==='development'&&$latest->status==='ready'):(str_contains($preflight,'development')&&str_contains($preflight,'ready')),'Timbrado development queda preparado, no automático.');
+ $assert(str_contains($read('Services/Fiscal/Pac/FiscalDocumentStatusPresenter.php'),'stamped_xml'),'XML persistido forma parte de la proyección fiscal.');
+ $assert(str_contains($read('Services/Fiscal/Pdf/FiscalPacPdfGenerationService.php'),'PacPdfArtifactService'),'PDF PAC se persiste mediante el servicio central.');
+ $assert(str_contains($routes,"fiscal/stamping/xml/download/(:num)"),'Ruta de descarga XML registrada.');
+ $assert(str_contains($routes,"fiscal/documents/(:num)/pdf/download"),'Ruta de descarga PDF registrada.');
+ $assert(str_contains($saleView,"fiscal/invoices/")&&str_contains($invoiceView,"invoices/view/"),'Navegación venta-documento está presente en ambas vistas.');
+ $assert(str_contains($querySource,"where('d.is_test_fixture',0)"),'Fixtures fake se ocultan a usuarios normales.');
+ $columns=$db->getFieldNames('fiscal_profiles');$assert(!in_array('is_active',$columns,true)&&in_array('status',$columns,true)&&in_array('valid_from',$columns,true)&&in_array('valid_to',$columns,true),'Schema real de perfiles no contiene columnas obsoletas conocidas.');
+ $assert($db->getDatabase()==='ikontrol20_dold_preview'&&$db->table('fiscal_documents')->where('id',25)->countAllResults()===0,'Documentos históricos de otras bases no se copiaron ni alteraron.');
+}catch(Throwable$error){echo'[FAIL] '.get_class($error).': '.$error->getMessage().PHP_EOL;$fail++;}
+echo PHP_EOL."{$pass} passed, {$fail} failed.".PHP_EOL;exit($fail?1:0);

@@ -1,0 +1,4 @@
+<?php
+namespace App\Models\Fiscal;
+use App\Models\Crud_model;
+class Item_fiscal_taxes_model extends Crud_model { public function __construct(){parent::__construct('item_fiscal_taxes');} public function forSetting(int$id):array{return $this->db->table($this->table.' ft')->select('ft.*,t.title,t.is_fiscal_ready,t.use_for_fiscal,t.deleted AS tax_deleted')->join('taxes t','t.id=ft.tax_id','left')->where(['ft.item_fiscal_setting_id'=>$id,'ft.is_active'=>1])->orderBy('ft.sort_order')->get()->getResult();} public function replaceForSetting(int$id,array$taxIds):void{$taxIds=array_values(array_unique(array_filter(array_map('intval',$taxIds))));$this->db->table($this->table)->where('item_fiscal_setting_id',$id)->delete();$now=date('Y-m-d H:i:s');foreach($taxIds as$sort=>$taxId)$this->db->table($this->table)->insert(['item_fiscal_setting_id'=>$id,'tax_id'=>$taxId,'sort_order'=>$sort,'is_active'=>1,'created_at'=>$now,'updated_at'=>$now]);} }

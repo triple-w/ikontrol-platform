@@ -1,0 +1,10 @@
+{
+    "managed_by": "iKontrolAdmin",
+    "version": "1.3.0",
+    "files": {
+        "IkontrolDatabaseCheck.php": "4572667c330671484342d5d0110df4c7778260db290d6a8fe67cedaa2cbf2c6f",
+        "IkontrolLogCheck.php": "3f1c9bedb85586c27b8cf4ca1e287cca7b82075e4cfe20e4e99665b8209c7ccf",
+        "IkontrolAdminDiagnose.php": "9abfd244f23c9c7f5647b582333fe1c243ded54c0db433f6574205a37b523ca1",
+        "IkontrolDashboardCheck.php": "6cce792efc0f66ef7adcce7a714c3f7d32ba2a5c245dfc42d4b97b645db4cf2a"
+    }
+}

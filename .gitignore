@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+
+*.log
+
+writable/cache/*
+writable/logs/*
+writable/session/*
+writable/debugbar/*
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+app/ThirdParty/Stripe/vendor/stripe/stripe-php/README.md

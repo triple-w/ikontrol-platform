@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="5" Fecha="2026-08-24T21:33:00" FormaPago="99" SubTotal="1231.47" Moneda="MXN" Total="1428.50" TipoDeComprobante="I" Exportacion="01" MetodoPago="PPD" LugarExpedicion="97130">
+  <cfdi:Emisor Rfc="DOLD860620EW7" Nombre="DENNISSE MILDRETH DOMINGUEZ LOPEZ" RegimenFiscal="612"/>
+  <cfdi:Receptor Rfc="OTC080114C30" Nombre="EXPERIENCIAS XCARET PARQUES" DomicilioFiscalReceptor="77710" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="53111600" Cantidad="10.000000" ClaveUnidad="PR" Unidad="PRS" Descripcion="ZAPATOS" ValorUnitario="123.146552" Importe="1231.47" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1231.47" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="197.03"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="197.03">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1231.47" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="197.03"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+</cfdi:Comprobante>

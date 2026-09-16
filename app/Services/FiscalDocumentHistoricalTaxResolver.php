@@ -1,0 +1,12 @@
+<?php
+declare(strict_types=1);
+namespace App\Services;
+use App\Services\Fiscal\FiscalDecimal;
+use RuntimeException;
+final class FiscalDocumentHistoricalTaxResolver
+{
+ public function __construct(private $db=null){$this->db??=db_connect();}
+ public function resolve(int$documentId):array{$doc=$this->db->table('fiscal_documents')->where(['id'=>$documentId,'deleted'=>0])->get(1)->getRow();if(!$doc)throw new RuntimeException('CFDI histórico no encontrado.');$items=$this->db->table('fiscal_document_items')->select('id,tax_object_code')->where('fiscal_document_id',$documentId)->orderBy('line_number')->get()->getResult();if(!$items)throw new RuntimeException('El CFDI no conserva conceptos fiscales históricos.');$object='01';foreach($items as$item)if((string)$item->tax_object_code!=='01'){$object='02';break;}$rows=$this->db->table('fiscal_document_item_taxes t')->select('t.tax_code,t.tax_type,t.factor_type,t.rate_or_quota,t.taxable_base,t.amount')->join('fiscal_document_items i','i.id=t.fiscal_document_item_id')->where('i.fiscal_document_id',$documentId)->orderBy('t.sort_order')->get()->getResultArray();$groups=[];foreach($rows as$r){$type=in_array($r['tax_type'],['withheld','withholding'],true)?'withholding':'transfer';$rate=$r['rate_or_quota']===null?null:$this->decimal($r['rate_or_quota']);$key=implode('|',[$r['tax_code'],$type,$r['factor_type'],(string)$rate]);if(!isset($groups[$key]))$groups[$key]=['tax_code'=>(string)$r['tax_code'],'tax_type'=>$type,'factor_type'=>(string)$r['factor_type'],'rate_or_quota'=>$rate,'base'=>'0.000000','amount'=>'0.000000','exempt'=>$r['factor_type']==='Exento'];$groups[$key]['base']=FiscalDecimal::add($groups[$key]['base'],$this->decimal($r['taxable_base']));$groups[$key]['amount']=FiscalDecimal::add($groups[$key]['amount'],$this->decimal($r['amount']));}if($object==='02'&&!$groups)throw new RuntimeException('No fue posible determinar los impuestos históricos del CFDI.');return['document_id'=>$documentId,'total'=>$this->decimal($doc->total),'currency'=>(string)($doc->currency_code??'MXN'),'tax_object_code'=>$object,'taxes'=>array_values($groups)];}
+ public function prorate(array$historical,string$paid,string$previous):array{$out=[];foreach($historical['taxes']as$t){$t['base']=FiscalDecimal::prorate($t['base'],$paid,$previous);$t['amount']=$t['exempt']?'0.000000':FiscalDecimal::prorate($t['amount'],$paid,$previous);$out[]=$t;}return$out;}
+ private function decimal($v):string{return FiscalDecimal::format(FiscalDecimal::micros((string)$v));}
+}

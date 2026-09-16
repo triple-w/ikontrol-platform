@@ -1,0 +1,4 @@
+<?php
+namespace App\Database\Seeds;
+use App\Database\Seeds\ExplicitConnectionSeeder as Seeder;
+class SatTaxObjectCodesSeeder extends Seeder { public function run(){ $now=date('Y-m-d H:i:s');$inserted=0;$updated=0;$rows=[['01','No objeto de impuesto'],['02','Sí objeto de impuesto'],['03','Sí objeto del impuesto y no obligado al desglose'],['04','Sí objeto del impuesto y no causa impuesto']];foreach($rows as$r){$data=['description'=>$r[1],'is_active'=>1,'valid_from'=>null,'valid_to'=>null,'updated_at'=>$now];$found=$this->db->table('sat_tax_object_codes')->where('code',$r[0])->get()->getRow();if($found){$this->db->table('sat_tax_object_codes')->where('id',$found->id)->update($data);$updated++;}else{$data['code']=$r[0];$data['created_at']=$now;$this->db->table('sat_tax_object_codes')->insert($data);$inserted++;}}echo "sat_tax_object_codes: inserted=$inserted updated=$updated".PHP_EOL; } }

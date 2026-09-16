@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use CodeIgniter\Boot;
+
+if (version_compare(PHP_VERSION, '8.1', '<')) {
+    fwrite(STDERR, "CodeIgniter requires PHP 8.1 or newer.\n");
+    exit(1);
+}
+
+define('FCPATH', __DIR__ . DIRECTORY_SEPARATOR);
+chdir(FCPATH);
+
+require FCPATH . 'app/Config/Paths.php';
+
+$paths = new Config\Paths();
+
+require $paths->systemDirectory . '/Boot.php';
+
+exit(Boot::bootSpark($paths));
+

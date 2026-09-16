@@ -1,0 +1,25 @@
+<?php
+declare(strict_types=1);
+define('ROOTPATH',dirname(__DIR__,2).DIRECTORY_SEPARATOR);define('FCPATH',ROOTPATH);require ROOTPATH.'app/Config/Paths.php';$paths=new Config\Paths();define('APPPATH',realpath($paths->appDirectory).DIRECTORY_SEPARATOR);define('SYSTEMPATH',realpath($paths->systemDirectory).DIRECTORY_SEPARATOR);define('WRITEPATH',realpath($paths->writableDirectory).DIRECTORY_SEPARATOR);define('ENVIRONMENT','development');require $paths->systemDirectory.'/Boot.php';CodeIgniter\Boot::bootTest($paths);helper(['general','date_time','plugin','currency']);require_once APPPATH.'ThirdParty/PHP-Hooks/php-hooks.php';
+$p=$f=0;$ok=function(bool$v,string$m)use(&$p,&$f){echo($v?'[PASS] ':'[FAIL] ').$m.PHP_EOL;$v?$p++:$f++;};$mapper=new App\Services\Fiscal\Cancellation\FiscalCancellationStatusMapper();$cancel=static fn(string$code)=>['code'=>'201','message'=>'Solicitud de cancelación de UUID exitosa.-','data'=>['acuse'=>'<Acuse><Folios><EstatusUUID>'.$code.'</EstatusUUID></Folios></Acuse>','uuid'=>['TEST'=>$code]],'status'=>'success'];
+$r=$mapper->map('cancelarPEM',$cancel('202'));$ok($r['cancellation_status']==='cancelled'&&$r['fiscal_status']==='cancelled','Immediate cancellation maps cancelled.');
+$r=$mapper->map('cancelarPEM',$cancel('201'));$ok($r['cancellation_status']==='pending'&&!$r['requires_reconciliation'],'Status 201 maps pending.');
+$r=$mapper->map('cancelarPEM',$cancel('203'));$ok($r['cancellation_status']==='rejected'&&$r['retry_allowed'],'Status 203 maps rejected.');
+$r=$mapper->map('consultarEstadoSAT',['CodigoEstatus'=>'N - 998: intermitencia','Estado'=>'Favor de consultarlo más tarde.']);$ok($r['cancellation_status']==='verifying'&&$r['requires_reconciliation'],'N-998 maps verifying.');
+$r=$mapper->map('consultarEstadoSAT',['Estado'=>'Vigente','EsCancelable'=>'Cancelable con aceptación','EstatusCancelacion'=>'En proceso']);$ok($r['cancellation_status']==='pending','Pending never maps verifying.');
+$r=$mapper->map('consultarEstadoSAT',['Estado'=>'Cancelado','EstatusCancelacion'=>'Cancelado']);$ok($r['fiscal_status']==='cancelled','Cancelled produces cancelled fiscal status.');
+$r=$mapper->map('consultarEstadoSAT',['Estado'=>'Vigente','EstatusCancelacion'=>'Rechazado']);$ok($r['cancellation_status']==='rejected','SAT rejection maps rejected.');
+$policy=new App\Services\Fiscal\Cancellation\CancellationBusinessDayPolicy();$recommended=$policy->recommendedAt(new DateTimeImmutable('2026-08-28 10:00:00'));$ok($recommended->format('Y-m-d')==='2026-09-02','Three business days skip Saturday and Sunday.');
+$wallet=file_get_contents(APPPATH.'Services/Fiscal/Stamps/FiscalStampAccountService.php');$service=file_get_contents(APPPATH.'Services/Fiscal/Cancellation/FiscalCancellationService.php');$view=file_get_contents(APPPATH.'Views/fiscal/invoices/cancellation_status_form.php');$controller=file_get_contents(APPPATH.'Controllers/Fiscal/Invoices.php');
+$ok(str_contains($wallet,'cancellation_request')&&str_contains($service,'consumeCancellationRequest'),'Request consumes one commercial stamp.');
+$ok(str_contains($wallet,'cancellation_status_query')&&str_contains($service,'consumeCancellationStatusQuery'),'Status query consumes one commercial stamp.');
+$ok(!str_contains($controller,'consumeCancellation'),'Opening modal and viewing state consume zero.');
+$ok(!str_contains(file_get_contents(APPPATH.'Controllers/Fiscal/Invoices.php'),'consumeCancellationRequest'),'Acknowledgement controller consumes zero.');
+$ok(strpos($service,'csdPayload')<strpos($service,"->cancel(\$payload)"),'Local CSD validation happens before provider call and charge.');
+$ok(str_contains($service,"available']<1")&&str_contains($service,'No cuenta con timbres suficientes'),'Insufficient balance blocks locally.');
+$ok(str_contains($wallet,'cancellation-status-query:{$id}:{$queryKey}')&&str_contains($service,'existingMovement'),'Query double click is idempotent.');
+$ok(str_contains($view,'Cada consulta de estado consume 1 timbre')&&str_contains($view,'Consultar y consumir 1 timbre'),'Warning modal states commercial cost.');
+$ok(str_contains($view,'3 días hábiles')&&!str_contains($view,'72 horas'),'UX uses three business days, never 72 hours.');
+$ok(!str_contains($service,'consultarCreditosDisponibles')&&!str_contains($wallet,'consultarCreditosDisponibles'),'Provider credits are untouched.');
+$ok(str_contains(file_get_contents(APPPATH.'Services/Fiscal/Cancellation/TimbradorXpressCancellationAdapter.php'),'FiscalCancellationStatusMapper'),'Real response fixtures use canonical mapper.');
+echo"\n{$p} passed, {$f} failed. Zero network.\n";exit($f?1:0);

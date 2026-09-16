@@ -1,0 +1,9 @@
+<?php
+declare(strict_types=1);
+namespace App\Services\Legacy\Fc2;
+use App\Contracts\Legacy\Fc2\Fc2ProductSourceInterface;use App\Domain\Legacy\Fc2\Fc2ProductRecord;
+final class Fc2ProductSource implements Fc2ProductSourceInterface {
+ public function __construct(private$db=null,private?Fc2DataNormalizer$n=null){$this->db??=db_connect('fc2_legacy');$this->n??=new Fc2DataNormalizer();}
+ public function iterateByOwner(int$ownerId,int$chunkSize=200):iterable{$last=0;$chunkSize=max(1,min(1000,$chunkSize));do{$rows=$this->db->table('productos p')->select('p.*,ps.clave sat_product_code,pu.clave sat_unit_code')->join('clave_prod_serv ps','ps.id=p.clave_prod_serv_id','left')->join('clave_unidad pu','pu.id=p.clave_unidad_id','left')->where('p.users_id',$ownerId)->where('p.id >',$last)->orderBy('p.id','ASC')->limit($chunkSize)->get()->getResultArray();foreach($rows as$r){$last=(int)$r['id'];yield$this->record($ownerId,$r);}}while(count($rows)===$chunkSize);}
+ private function record(int$o,array$r):Fc2ProductRecord{$priceError=null;try{$price=$this->n->decimal($r['precio'],4);}catch(\Throwable$e){$price=null;$priceError=$e->getMessage();}$data=['legacy_id'=>(string)$r['id'],'clave_interna'=>$this->n->text($r['clave']),'descripcion'=>$this->n->text($r['descripcion']),'precio'=>$price,'precio_original'=>$r['precio']===null?null:(string)$r['precio'],'precio_error'=>$priceError,'unidad_comercial'=>$this->n->text($r['unidad']),'clave_prod_serv_id'=>$r['clave_prod_serv_id']===null?null:(string)$r['clave_prod_serv_id'],'clave_prod_serv'=>$this->n->text($r['sat_product_code']),'clave_unidad_id'=>$r['clave_unidad_id']===null?null:(string)$r['clave_unidad_id'],'clave_unidad'=>$this->n->text($r['sat_unit_code']),'observaciones'=>$this->n->text($r['observaciones'])];$snapshot=$data+['users_id'=>(string)$r['users_id']];return new Fc2ProductRecord($o,(int)$r['id'],$snapshot,$this->n->hash($snapshot),$data);}
+}

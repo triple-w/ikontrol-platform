@@ -1,0 +1,28 @@
+{
+    "database": "ikontrol_new",
+    "migration_total": 48,
+    "max_batch": 25,
+    "clients": 1,
+    "items": 2,
+    "fiscal_profiles": 2,
+    "fiscal_series": 2,
+    "fiscal_documents": 19,
+    "legacy_import_batches": 0,
+    "legacy_import_mappings": 0,
+    "rate": {
+        "COLUMN_TYPE": "decimal(18,6)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "0.000000"
+    },
+    "schema_hashes": {
+        "items": "d25c804f6345475832d5f19f4fe89816c156aca77b053b32a7fb0f1524c59585",
+        "legacy_import_batches": "4be7f1ecdfe4c71611b1086e2eefd8381499aba5bb72b404382355a02aded628",
+        "legacy_import_mappings": "dd045a06cc46cd52b9cd9dfa9f8c6f99fa59e58f81f634ebcd384f7c84014fb9"
+    },
+    "sat_hashes": {
+        "product": "d45ec24118b0332363cfb4a9d5602124df65ad33557d0fdfb33fc6436b4db6ea",
+        "unit": "e8f32658b4a88b4547b2360d2f8e560009322e4ad1501147ce3366ca5e60551e",
+        "object": "ca649b27c76db18ac224653cc4d27b876d46bf79e11c09f186a3b42b2ecc7ee6"
+    },
+    "dold_exact_hits": 0
+}

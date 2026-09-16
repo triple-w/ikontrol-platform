@@ -1,0 +1,12 @@
+<?php
+declare(strict_types=1);
+define('ROOTPATH',dirname(__DIR__,2).DIRECTORY_SEPARATOR);define('FCPATH',ROOTPATH);require ROOTPATH.'app/Config/Paths.php';$p=new Config\Paths();define('APPPATH',realpath($p->appDirectory).DIRECTORY_SEPARATOR);define('SYSTEMPATH',realpath($p->systemDirectory).DIRECTORY_SEPARATOR);define('WRITEPATH',realpath($p->writableDirectory).DIRECTORY_SEPARATOR);define('ENVIRONMENT','development');require$p->systemDirectory.'/Boot.php';CodeIgniter\Boot::bootTest($p);
+use App\Services\FinancialMoney;use App\Services\Fiscal\ProductFiscalReadinessService;
+$pass=$fail=0;$ok=function(bool$v,string$m)use(&$pass,&$fail){echo($v?'[PASS] ':'[FAIL] ').$m.PHP_EOL;$v?$pass++:$fail++;};
+foreach(['100'=>'100.000000','100.1'=>'100.100000','100.123456'=>'100.123456','100.1234560'=>'100.123456','100.123456000000'=>'100.123456']as$in=>$out)$ok(FinancialMoney::fromDatabase($in)===$out,'DB '.$in);
+try{FinancialMoney::normalize('100.1234560');$ok(false,'external overscale rejected');}catch(InvalidArgumentException){$ok(true,'external overscale rejected');}
+try{FinancialMoney::fromDatabase('100.1234567');$ok(false,'nonzero overscale rejected');}catch(InvalidArgumentException){$ok(true,'nonzero overscale rejected');}
+$ok(FinancialMoney::subtract('100.123456','0.123456')==='100.000000','subtraction');$ok(FinancialMoney::percent('100','16')==='16.000000','percentage');
+$setting=['item_id'=>1,'status'=>'ready','product_service_code'=>'53111600','unit_code'=>'PR','commercial_unit'=>'PAR','tax_object_code'=>'02','fiscal_description'=>'Producto'];$tax=[['tax_code'=>'002','tax_type'=>'transfer','factor_type'=>'Tasa','rate_or_quota'=>'0.160000']];$service=new ProductFiscalReadinessService();$ok($service->evaluate($setting,$tax)['ready'],'UI-shaped product ready');$setting['commercial_unit']='';$ok(!$service->evaluate($setting,$tax)['ready'],'legacy incomplete rejected');
+$db=db_connect();$allocations=new App\Services\PaymentAllocationService($db);$payments=$db->table('invoice_payments')->select('id')->where('deleted',0)->get()->getResult();foreach($payments as$payment){$allocations->paymentApplied((int)$payment->id);$allocations->paymentAvailable((int)$payment->id);$allocations->salesForPayment((int)$payment->id);$allocations->allocationsForPayment((int)$payment->id);}$ok(true,'payment view aggregates are canonical');
+echo 'TOTAL PASS='.$pass.' FAIL='.$fail.PHP_EOL;exit($fail?1:0);

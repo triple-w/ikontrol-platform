@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="13" Fecha="2026-07-24T22:24:46" FormaPago="99" SubTotal="1708.10" Moneda="MXN" Total="1981.40" TipoDeComprobante="I" Exportacion="01" MetodoPago="PPD" LugarExpedicion="37390">
+  <cfdi:Emisor Rfc="LIMF651016ID9" Nombre="FRANCISCO JAVIER LIRA MUÑOZ" RegimenFiscal="612"/>
+  <cfdi:Receptor Rfc="BARA9002039G1" Nombre="ALEJANDRO BARAJAS RUENES" DomicilioFiscalReceptor="37004" RegimenFiscalReceptor="612" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="43211500" Cantidad="1.900000" ClaveUnidad="H87" Unidad="pieza" Descripcion="Computadora" ValorUnitario="899.000000" Importe="1708.10" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="1708.10" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="273.30"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="273.30">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="1708.10" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="273.30"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+</cfdi:Comprobante>

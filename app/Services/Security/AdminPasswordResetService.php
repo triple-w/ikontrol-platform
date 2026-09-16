@@ -1,0 +1,8 @@
+<?php
+declare(strict_types=1);
+namespace App\Services\Security;
+use CodeIgniter\Database\BaseConnection;use RuntimeException;
+final class AdminPasswordResetService{
+ public const MINIMUM_LENGTH=12;public function __construct(private readonly BaseConnection$db){}
+ public function reset(string$identifier,string$password,string$confirmation):array{$identifier=trim($identifier);if($identifier==='')throw new RuntimeException('El identificador es obligatorio.');if($password===''||strlen($password)<self::MINIMUM_LENGTH)throw new RuntimeException('La contraseña debe tener al menos '.self::MINIMUM_LENGTH.' caracteres.');if(!hash_equals($password,$confirmation))throw new RuntimeException('Las contraseñas no coinciden.');$builder=$this->db->table('users')->select('id,email')->where('deleted',0)->where('user_type','staff');ctype_digit($identifier)?$builder->where('id',(int)$identifier):$builder->where('email',$identifier);$users=$builder->limit(2)->get()->getResultArray();if(count($users)!==1)throw new RuntimeException('Usuario administrativo inexistente o ambiguo.');$hash=password_hash($password,PASSWORD_DEFAULT);if(!is_string($hash)||$hash==='')throw new RuntimeException('No fue posible generar el hash de contraseña.');$this->db->transException(true)->transStart();$this->db->table('users')->where('id',(int)$users[0]['id'])->update(['password'=>$hash]);if($this->db->affectedRows()!==1)throw new RuntimeException('No se actualizó exactamente un usuario.');$this->db->transComplete();if(!$this->db->transStatus())throw new RuntimeException('Falló la transacción de contraseña.');return['id'=>(int)$users[0]['id'],'email'=>(string)$users[0]['email']];}
+}

@@ -1,0 +1,26 @@
+<?php
+declare(strict_types=1);define('ROOTPATH',dirname(__DIR__,2).DIRECTORY_SEPARATOR);define('FCPATH',ROOTPATH);require ROOTPATH.'app/Config/Paths.php';$p=new Config\Paths();define('APPPATH',realpath($p->appDirectory).DIRECTORY_SEPARATOR);define('SYSTEMPATH',realpath($p->systemDirectory).DIRECTORY_SEPARATOR);define('WRITEPATH',realpath($p->writableDirectory).DIRECTORY_SEPARATOR);define('ENVIRONMENT','development');require $p->systemDirectory.'/Boot.php';CodeIgniter\Boot::bootTest($p);helper(['general','date_time']);
+$pass=$fail=0;$ok=function($v,$m)use(&$pass,&$fail){echo($v?'[PASS] ':'[FAIL] ').$m.PHP_EOL;$v?$pass++:$fail++;};$read=fn($x)=>(string)file_get_contents(ROOTPATH.$x);
+try{$db=db_connect();$uxAttemptsBefore=$db->table('fiscal_stamp_attempts')->countAllResults();$uxMovesBefore=$db->table('fiscal_stamp_movements')->countAllResults();$routes=$read('app/Config/FiscalRoutes.php');$summary=$read('app/Views/invoices/fiscal_summary.php');$actions=$read('app/Views/invoices/invoice_actions.php');$controller=$read('app/Controllers/Invoices.php');$drafts=$read('app/Controllers/Fiscal/Drafts.php');$form=$read('app/Views/fiscal/drafts/form.php');$appJs=$read('assets/js/app.js');$bundle=$read('assets/js/app.all.js');$canonical='fiscal/drafts/create/';
+$ok(str_contains($summary,$canonical)&&str_contains($summary,"'data-action-method'=>'GET'"),'Review button URL correcta.');
+$ok(str_contains($controller,$canonical)&&substr_count($controller,'data-action-method')>=2,'Invoice button URL correcta.');
+$ok(str_contains($summary.$actions.$controller,$canonical),'Ambas usan flujo canónico.');
+$ok(!str_contains($summary.$actions.$controller,'fiscal/invoices/review/'),'Legacy no visible.');
+$ok(str_contains($routes,"get('fiscal/drafts/create/(:num)'")&&!str_contains($routes,"post('fiscal/drafts/create/(:num)'"),'Modal review usa GET registrado.');
+$ok(str_contains($appJs,'data-action-method')&&str_contains($bundle,'data-action-method'),'Modal Facturar usa GET en JS servido.');
+$normalReview=$read('app/Views/fiscal/drafts/review.php');$ok(str_contains($drafts,"template->view('fiscal/drafts/review'")&&str_contains($normalReview,"'id'=>'fiscal-review-form'")&&str_contains($normalReview,'.appForm('),'Respuesta HTML compatible appForm.');
+$ok(str_contains($actions,'fiscal.sales.invoice')&&str_contains($actions,'fiscal.drafts.create')&&str_contains($drafts,"'fiscal.drafts.create','fiscal.sales.invoice'"),'Permiso visible=permiso accesible.');
+$sale=$db->table('invoices')->where('id',8)->get(1)->getRow();$ok($sale&&$sale->commercial_status==='closed','Sale closed aceptada.');
+$ok(str_contains($read('app/Services/Fiscal/FiscalDraftWorkflowService.php'),'cancelled'),'Sale cancelled rechazada.');
+$ok(str_contains($read('app/Services/Fiscal/FiscalIssuerResolver.php'),"'fp.profile_type', 'issuer'")&&!str_contains($form,'LIMF651016ID9'),'Emisor dinámico.');
+$draft=$db->table('fiscal_drafts')->where('id',2)->get(1)->getRow();$receiver=$db->table('fiscal_profiles')->where('id',(int)$draft->receiver_profile_id)->get(1)->getRow();$ok($receiver&&(int)$draft->customer_id===(int)$sale->client_id,'Receptor dinámico.');
+$ok((int)$draft->fiscal_series_id===1&&$draft->provisional_series==='A','Serie dinámica.');
+$ok(str_contains($form,'name="issue_date"')&&str_contains($read('app/Services/Fiscal/FiscalDraftWorkflowService.php'),'new FiscalIssueDatePolicy()'),'Fecha visible y política aplicada.');
+$ok(str_contains($form,'name="cfdi_use_code"'),'Uso CFDI visible.');$ok(str_contains($form,'name="payment_method_code"'),'Método visible.');$ok(str_contains($form,'name="payment_form_code"'),'Forma visible.');
+$ok($draft->payment_method_code==='PPD'&&$draft->payment_form_code==='99','PPD/99 para not_paid.');
+$ok((int)$draft->snapshot_version===2&&(int)$draft->requires_snapshot_refresh===0,'Guardado genera snapshot v2.');
+$tax=$db->table('fiscal_draft_item_taxes t')->join('fiscal_draft_items i','i.id=t.fiscal_draft_item_id')->where('i.fiscal_draft_id',2)->get(1)->getRow();$ok($tax&&$tax->tax_code==='002'&&$tax->tax_amount==='18.560000','Conceptos e impuestos guardados.');
+$ok(str_contains($read('app/Views/fiscal/drafts/preinvoice.php'),"preinvoice['payment_method']")&&str_contains($routes,'/preinvoice'),'Prefactura HTTP disponible.');
+$saleAfter=$db->table('invoices')->where('id',8)->get(1)->getRow();$ok($saleAfter->commercial_status==='closed'&&$saleAfter->status==='not_paid','Venta permanece closed.');
+$ok($db->table('fiscal_stamp_attempts')->countAllResults()===$uxAttemptsBefore&&$db->table('fiscal_stamp_movements')->countAllResults()===$uxMovesBefore,'Cero llamadas PAC y cero consumo timbres.');
+}catch(Throwable$e){echo'[FAIL] '.$e->getMessage().PHP_EOL;$fail++;}echo"\n{$pass} passed, {$fail} failed.\n";exit($fail?1:0);

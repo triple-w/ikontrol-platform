@@ -1,0 +1,4 @@
+<?php
+namespace App\Database\Migrations;
+use CodeIgniter\Database\Migration;
+class CreatePaymentComplementFiscalSnapshots extends Migration{public function up(){ $this->forge->addField(['id'=>['type'=>'INT','unsigned'=>true,'auto_increment'=>true],'payment_complement_id'=>['type'=>'INT','unsigned'=>true],'version'=>['type'=>'INT','default'=>1],'status'=>['type'=>'VARCHAR','constraint'=>30,'default'=>'preview'],'payload_json'=>['type'=>'LONGTEXT'],'xml_content'=>['type'=>'LONGTEXT','null'=>true],'sha256'=>['type'=>'VARCHAR','constraint'=>64],'created_by'=>['type'=>'INT','null'=>true],'created_at'=>['type'=>'DATETIME']]);$this->forge->addKey('id',true);$this->forge->addKey(['payment_complement_id','version']);$this->forge->createTable('payment_complement_fiscal_snapshots',true);}public function down(){$this->forge->dropTable('payment_complement_fiscal_snapshots',true);}}

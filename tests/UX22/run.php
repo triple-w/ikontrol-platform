@@ -1,0 +1,24 @@
+<?php
+declare(strict_types=1);
+define('ROOTPATH',dirname(__DIR__,2).DIRECTORY_SEPARATOR);define('FCPATH',ROOTPATH);require ROOTPATH.'app/Config/Paths.php';$paths=new Config\Paths();define('APPPATH',realpath($paths->appDirectory).DIRECTORY_SEPARATOR);define('SYSTEMPATH',realpath($paths->systemDirectory).DIRECTORY_SEPARATOR);define('WRITEPATH',realpath($paths->writableDirectory).DIRECTORY_SEPARATOR);define('ENVIRONMENT','development');require$paths->systemDirectory.'/Boot.php';CodeIgniter\Boot::bootTest($paths);helper(['plugin','general','date_time']);
+use App\Services\Fiscal\FiscalDecimal;
+$passed=$failed=0;$ok=function(bool$c,string$m)use(&$passed,&$failed){echo($c?'[PASS] ':'[FAIL] ').$m.PHP_EOL;$c?$passed++:$failed++;};
+$materializer=file_get_contents(APPPATH.'Services/Fiscal/FiscalDocumentFromDraftSnapshotService.php');$flow=file_get_contents(APPPATH.'Services/Fiscal/FiscalInvoiceFlowService.php');$stamp=file_get_contents(APPPATH.'Services/Fiscal/FiscalDraftStampingService.php');$replacement=file_get_contents(APPPATH.'Services/Fiscal/FiscalRejectedDraftReplacementService.php');
+$ok(FiscalDecimal::divide('100','2')==='50.000000','Precio fiscal IVA incluido 100/2=50.');
+$ok(FiscalDecimal::micros(FiscalDecimal::multiply('2','50'))===FiscalDecimal::micros('100'),'Cantidad por valor unitario igual a Importe.');
+$ok(FiscalDecimal::micros(FiscalDecimal::multiply('100','0.160000'))===FiscalDecimal::micros('16'),'Base por tasa igual a IVA.');
+$ok(FiscalDecimal::micros(FiscalDecimal::add('100','16'))===FiscalDecimal::micros('116'),'Subtotal más IVA igual a total.');
+$ok(str_contains($materializer,"'gross_amount' => \$item['subtotal']")&&str_contains($materializer,"'discount' => \$item['discount']"),'Descuento permanece separado del importe bruto.');
+$ok(str_contains($materializer,'FiscalDecimal::divide'),'Materialización usa división decimal corregida.');
+$ok(str_contains($replacement,'rejected_preparation_replaced')&&str_contains($replacement,'workflow->discard'),'Rechazo histórico se conserva y reemplaza canónicamente.');
+$ok(str_contains($stamp,"setDraftState(\$draftId, 'ready'"),'Rechazo seguro libera flujo para corrección.');
+$ok(str_contains($stamp,'convertDraftAllocationsToDocument'),'Éxito convierte asignaciones canónicamente.');
+$ok(str_contains($flow,"category'=>'transport_unknown'")&&str_contains($flow,"'retry_allowed'=>false"),'Unknown mantiene bloqueo sin retry.');
+$parser=file_get_contents(APPPATH.'Services/Fiscal/Pac/TimbradorXpressStampDataParser.php');$ok(str_contains($parser,"str_starts_with(\$raw,'<?xml')")&&str_contains($parser,"['XML']=\$raw"),'Parser acepta XML PAC directo.');
+$pdf=file_get_contents(APPPATH.'Services/Fiscal/Pdf/FiscalPacPdfGenerationService.php');$ok(str_contains($pdf,'210'),'PDF exige código 210.');
+$ok(str_contains($stamp,'if (!$result->pdfAvailable')&&substr_count($stamp,'$this->stamping->stamp')===1,'Fallo PDF no retimbra.');
+$ok(str_contains($stamp,"resultArray['pdfAvailable']")&&str_contains($stamp,"pdf_status"),'Resultado final refleja el PDF generado automáticamente.');
+$ok(str_contains($flow,"'redirect_url'=>get_uri('fiscal/invoices/"),'Éxito devuelve redirect.');
+$ok(str_contains($flow,'sanitizeProviderMessage')&&str_contains($flow,"'provider_message'=>\$providerMessage"),'Mensaje PAC llega sanitizado a UX.');
+$ok(str_contains($flow,'GET_LOCK')&&str_contains($stamp,'GET_LOCK'),'Doble clic protegido por locks.');
+echo "\n$passed passed, $failed failed.\n";exit($failed?1:0);

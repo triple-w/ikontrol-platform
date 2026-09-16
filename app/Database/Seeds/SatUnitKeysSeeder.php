@@ -1,0 +1,4 @@
+<?php
+namespace App\Database\Seeds;
+use App\Database\Seeds\ExplicitConnectionSeeder as Seeder;
+class SatUnitKeysSeeder extends Seeder { public function run(){ $now=date('Y-m-d H:i:s');$inserted=0;$updated=0;$rows=[['H87','Pieza','Pieza',null],['E48','Unidad de servicio','Unidad de servicio',null],['KGM','Kilogramo','Kilogramo','kg']];foreach($rows as$r){$data=['name'=>$r[1],'description'=>$r[2],'symbol'=>$r[3],'valid_from'=>null,'valid_to'=>null,'is_active'=>1,'source_version'=>'CFDI 4.0 carga mínima','updated_at'=>$now];$found=$this->db->table('sat_unit_keys')->where('code',$r[0])->get()->getRow();if($found){$this->db->table('sat_unit_keys')->where('id',$found->id)->update($data);$updated++;}else{$data['code']=$r[0];$data['created_at']=$now;$this->db->table('sat_unit_keys')->insert($data);$inserted++;}}echo "sat_unit_keys: inserted=$inserted updated=$updated".PHP_EOL; } }

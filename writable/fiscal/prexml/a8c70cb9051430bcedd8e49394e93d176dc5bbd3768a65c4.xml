@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0" Serie="A" Folio="2" Fecha="2026-07-23T19:06:33" FormaPago="99" SubTotal="2500.00" Moneda="MXN" Total="2900.00" TipoDeComprobante="I" Exportacion="01" MetodoPago="PPD" LugarExpedicion="37530">
+  <cfdi:Emisor Rfc="LIMF651016ID9" Nombre="TRIPLE W SISTEMAS SAS" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="BARA9002039G1" Nombre="ALEJANDRO BARAJAS RUENES" DomicilioFiscalReceptor="37000" RegimenFiscalReceptor="612" UsoCFDI="G03"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="20122612" Cantidad="1.000000" ClaveUnidad="58" Unidad="Servicio" Descripcion="SoftResaurant" ValorUnitario="2500.000000" Importe="2500.00" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="2500.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="400.00"/>
+        </cfdi:Traslados>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="400.00">
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="2500.00" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="400.00"/>
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+</cfdi:Comprobante>

@@ -1,0 +1,4 @@
+<?php
+declare(strict_types=1);
+define('ROOTPATH',dirname(__DIR__,2).DIRECTORY_SEPARATOR);define('FCPATH',ROOTPATH);require ROOTPATH.'app/Config/Paths.php';$paths=new Config\Paths();define('APPPATH',realpath($paths->appDirectory).DIRECTORY_SEPARATOR);define('SYSTEMPATH',realpath($paths->systemDirectory).DIRECTORY_SEPARATOR);define('WRITEPATH',realpath($paths->writableDirectory).DIRECTORY_SEPARATOR);define('ENVIRONMENT','development');require $paths->systemDirectory.'/Boot.php';CodeIgniter\Boot::bootTest($paths);helper(['general','date_time','plugin','currency']);require_once APPPATH.'ThirdParty/PHP-Hooks/php-hooks.php';
+$documentId=(int)($argv[1]??0);$result=(new App\Services\Fiscal\Cancellation\FiscalCancellationService(db_connect()))->reconcileStoredStatusEvidence($documentId,1,true);echo json_encode($result,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES).PHP_EOL;
