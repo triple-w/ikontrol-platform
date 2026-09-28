@@ -223,7 +223,8 @@ final class IkontrolBaselineCheckService
             ));
         }
 
-        $count = (int) $this->db->table('payment_methods')->where('deleted', 0)->where('status', 'active')->countAllResults();
+        // RISE payment_methods has no status column: availability is explicit.
+        $count = (int) $this->db->table('payment_methods')->where('deleted', 0)->where('available_on_invoice', 1)->countAllResults();
 
         return $this->asArray(new BaselineCheckResult(
             key: 'payment_method_required',
@@ -440,6 +441,10 @@ final class IkontrolBaselineCheckService
 
     private function settingValue(string $name): string
     {
+        if (! $this->tableExists('settings')) {
+            return '';
+        }
+
         $row = $this->db->table('settings')
             ->select('setting_value')
             ->where('setting_name', $name)
