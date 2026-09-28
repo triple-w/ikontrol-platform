@@ -57,7 +57,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P00 | Preservar Base y caracterizar Baseline; fixtures aislados reproducibles | Checkpoint | IMPLEMENTADO; ver bitácora |
 | P01 | Schema aditivo de selección de plantilla; pruebas de preservación | P00 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO |
 | P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | PENDIENTE |
-| P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | PENDIENTE |
+| P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | BACKEND IMPLEMENTADO Y PROBADO; NO DESPLEGADO; gates de datos P02 y UI/comparador P07 pendientes. [Decisión P03](P03_MANUAL_SUPPLIER_COST_SCHEMA.md) |
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | PENDIENTE |
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | PENDIENTE |
 | P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | PENDIENTE |
@@ -92,6 +92,10 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 - [ ] Release con pasos de actualización y recuperación, riesgos conocidos y tag sobre este repositorio.
 
 Después de v1.0.0, todo cambio genérico se desarrollará primero aquí. Ninguna instancia cliente se convertirá en fuente principal.
+
+## Resultado P03 — 2026-09-28
+
+Backend manual aditivo, migración canónica nueva y lectura mínima compatible con NULL, sin alterar snapshots formales ni crear documentos comerciales. [Alcance, compatibilidad y riesgos](P03_MANUAL_SUPPLIER_COST_SCHEMA.md). Validación: 47 pruebas SQLite, 57 MySQL temporal (incluye dos procesos concurrentes), 8 aserciones de render. Sólo fixtures sintéticos; schema temporal eliminado. No se aplicó migración a fuentes, no hubo PAC ni avance a P04. Commit del paquete: `reconcile: manual supplier cost schema`.
 
 ## Bitácora
 
