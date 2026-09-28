@@ -55,7 +55,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | ID | Paquete / salida requerida | Dependencias | Estado |
 | --- | --- | --- | --- |
 | P00 | Preservar Base y caracterizar Baseline; fixtures aislados reproducibles | Checkpoint | IMPLEMENTADO; ver bitácora |
-| P01 | Schema aditivo de selección de plantilla; pruebas de preservación | P00 | PLANIFICADO |
+| P01 | Schema aditivo de selección de plantilla; pruebas de preservación | P00 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO |
 | P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | PENDIENTE |
 | P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | PENDIENTE |
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | PENDIENTE |
@@ -101,3 +101,8 @@ Después de v1.0.0, todo cambio genérico se desarrollará primero aquí. Ningun
 4. Inicio P00/P01; no se ejecutó migración alguna sobre las bases fuente ni PAC real.
 5. P00: conexión SQLite `:memory:` explícita, no compartida y sin credenciales; fixtures completos, limpieza y cache de metadatos coherentes. Se conserva el servicio Base y se corrigen dos defectos reales: consulta a `payment_methods.status` inexistente (se usa `available_on_invoice`) y consulta a settings ausente. No se cambió ningún flujo comercial ni el framework.
 6. Validación P00: `php -d extension=sqlite3 tests/BaselineCheck/run.php`. Pruebas de método no disponible y preservación de todos los datos de fixtures añadidas; historial de fixture ahora tiene archivo real y el baseline válido exige PASS sin WARN. Commit del paquete: `reconcile: baseline characterization`.
+7. P00 cerrado en `3a90daf`: **13 pruebas aprobadas**. El checkpoint original permanece en `e044301`.
+8. P01: migración de selección adaptada con precondición, verificación de schema existente y rollback no destructivo. No altera ninguna migración histórica de Base. [Decisión y validación completas](P01_PROPOSAL_TEMPLATE_SCHEMA.md).
+9. P01: **16 pruebas SQLite + 16 pruebas MySQL aprobadas**; schema MySQL temporal propio eliminado. Baseline revalidado: **13 aprobadas**. Lint y diff-check correctos. Commit del paquete: `reconcile: proposal template schema foundation`.
+10. Verificación de fuentes posterior: Base sigue con 172 tablas/65 registros, Navika con 174/86; ninguna tiene aún `proposal_template_id`. Navika conserva git status limpio. No se aplicó ni registró la migración en las bases fuente.
+11. Próximo paquete: P02, conciliación de las 19 históricas con lecturas DDL/DML y correcciones nuevas cuando proceda. El proyecto tiene 85 archivos de migración; las 19 originales sin registro más P01 no desplegada siguen pendientes de conciliación/despliegue. **No se declara v1.0.0 ni se crea tag antes de superar todos los gates.**
