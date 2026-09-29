@@ -134,41 +134,27 @@ class Proposals_model extends Crud_model {
         $client_sql = "SELECT $clients_table.currency_symbol, $clients_table.currency FROM $clients_table WHERE $clients_table.id=$proposal->client_id";
         $client = $this->db->query($client_sql)->getRow();
 
+        $totals = (new \App\Services\ProposalTotalsService())->calculate(
+            $item->proposal_subtotal ?? '0',
+            $proposal->discount_amount ?? '0',
+            $proposal->discount_amount_type ?? 'fixed_amount',
+            $proposal->discount_type ?? 'before_tax',
+            $proposal->tax_percentage ?? '0',
+            $proposal->tax_percentage2 ?? '0'
+        );
+
         $result = new \stdClass();
-        $result->proposal_subtotal = $item->proposal_subtotal;
+        $result->proposal_subtotal = $totals['subtotal'];
         $result->tax_percentage = $proposal->tax_percentage;
         $result->tax_percentage2 = $proposal->tax_percentage2;
         $result->tax_name = $proposal->tax_name;
         $result->tax_name2 = $proposal->tax_name2;
-        $result->tax = 0;
-        $result->tax2 = 0;
-
-        $proposal_subtotal = $result->proposal_subtotal;
-        $proposal_subtotal_for_taxes = $proposal_subtotal;
-        if ($proposal->discount_type == "before_tax") {
-            $proposal_subtotal_for_taxes = $proposal_subtotal - ($proposal->discount_amount_type == "percentage" ? ($proposal_subtotal * ($proposal->discount_amount / 100)) : $proposal->discount_amount);
-        }
-
-        if ($proposal->tax_percentage) {
-            $result->tax = $proposal_subtotal_for_taxes * ($proposal->tax_percentage / 100);
-        }
-        if ($proposal->tax_percentage2) {
-            $result->tax2 = $proposal_subtotal_for_taxes * ($proposal->tax_percentage2 / 100);
-        }
-        $proposal_total = $item->proposal_subtotal + $result->tax + $result->tax2;
-
-        //get discount total
-        $result->discount_total = 0;
-        if ($proposal->discount_type == "after_tax") {
-            $proposal_subtotal = $proposal_total;
-        }
-
-        $result->discount_total = $proposal->discount_amount_type == "percentage" ? ($proposal_subtotal * ($proposal->discount_amount / 100)) : $proposal->discount_amount;
-
-        $result->discount_type = $proposal->discount_type;
-
-        $result->discount_total = is_null($result->discount_total) ? 0 : $result->discount_total;
-        $result->proposal_total = $proposal_total - number_format($result->discount_total, 2, ".", "");
+        $result->tax = $totals['tax'];
+        $result->tax2 = $totals['tax2'];
+        $result->discount_total = $totals['discount'];
+        $result->discount_type = $totals['discount_type'];
+        $result->total_after_discount = $totals['total_after_discount'];
+        $result->proposal_total = $totals['grand_total'];
 
         $result->currency_symbol = $client->currency_symbol ? $client->currency_symbol : get_setting("currency_symbol");
         $result->currency = $client->currency ? $client->currency : get_setting("default_currency");

@@ -59,7 +59,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | ANÁLISIS DOCUMENTADO en [ledger P02](P02_MIGRATION_LEDGER.md); revisión de datos, correctiva e historial PENDIENTES; sin ejecución sobre fuentes |
 | P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | BACKEND IMPLEMENTADO Y PROBADO; NO DESPLEGADO; gates de datos P02 y UI/comparador P07 pendientes. [Decisión P03](P03_MANUAL_SUPPLIER_COST_SCHEMA.md) |
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | BACKEND/SCHEMA IMPLEMENTADO Y PROBADO; NO DESPLEGADO; lectura mixta, snapshot, XML/PDF y UI P11 pendientes. [Decisión P04](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md) |
-| P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | PENDIENTE |
+| P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; adopción UI/PDF P06, suppliers P07, selector operativo P09 y complementos P11 pendientes. [Decisión P05](P05_SHARED_SERVICES.md) |
 | P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | PENDIENTE |
 | P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | PENDIENTE |
 | P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | PENDIENTE |
@@ -100,6 +100,10 @@ Backend manual aditivo, migración canónica nueva y lectura mínima compatible 
 ## Resultado P04 — 2026-09-29
 
 Migración aditiva e idempotente para documentos fiscales externos, impuestos DR y `fiscal_documents.invoice_id` nullable, sin DML ni relaciones administrativas ficticias. Servicio mínimo de borrador con validación de UUID, saldos, moneda/equivalencia, ObjetoImpDR e impuestos. [Alcance, compatibilidad y riesgos](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md). Validación: 24 aserciones SQLite y 28 MySQL temporal; schema temporal eliminado. No se aplicó migración a fuentes ni hubo PAC. Snapshot, lectura mixta, builder, XML/PDF, rutas y UI siguen en P11. Commit del paquete: `reconcile: payment complement external schema`.
+
+## Resultado P05 — 2026-09-29
+
+`ProposalTotalsService` centraliza subtotal, descuento, impuestos y total general; `Proposals_model` conserva su contrato legacy y delega la aritmética. `FiscalRuntimeContext` distingue modo, ambiente lógico y ambiente de transporte sólo para diagnóstico; no habilita PAC ni cambia el factory. [Alcance, compatibilidad y dependencias](P05_SHARED_SERVICES.md). Validación: 16 aserciones puras aprobadas, sin conexión de negocio ni PAC. UI/PDF P06, suppliers P07, selector operativo P09 y complementos P11 permanecen pendientes. Commit del paquete: `reconcile: shared domain services`.
 
 ## Bitácora
 

@@ -9,7 +9,7 @@ final class FiscalIntegrationStatusService
     public function __construct(private mixed$db=null){$this->db??=db_connect();}
     public function inspect(int $draftId=3):array
     {
-        $f=config('Fiscal');$pac=config('TimbradorXpress');$pdf=config('FiscalPdfProvider');
+        $f=config('Fiscal');$pac=config('TimbradorXpress');$context=FiscalRuntimeContext::from($f,$pac);$pdf=config('FiscalPdfProvider');
         $issuer=(new FiscalIssuerResolver($this->db))->resolve(null,'development');
         $series=$issuer?$this->db->table('fiscal_series')->where(['issuer_profile_id'=>$issuer->id,'environment'=>'development','is_active'=>1,'deleted'=>0])->whereIn('document_type',['ingreso','I'])->orderBy('is_default','DESC')->get(1)->getRow():null;
         $certificate=$issuer?$this->db->table('fiscal_issuer_certificates')->where(['issuer_profile_id'=>$issuer->id,'status'=>'valid','deleted'=>0])->orderBy('valid_to','DESC')->get(1)->getRow():null;
@@ -31,10 +31,10 @@ final class FiscalIntegrationStatusService
         $draftPreflight=false;
         if($draft){try{$draftPreflight=(new FiscalDraftStampingPreflightService($this->db))->inspect($draftId,$documentId>0)['allowed'];}catch(Throwable){}}
         $checks=[
-            'runtime_mode'=>$f->runtimeMode,'fiscal_environment'=>$f->environment,
-            'pac_adapter'=>$f->pacAdapter,'allow_real_pac'=>$f->allowRealPac,
-            'pac_environment'=>$pac->environment,'pac_endpoint'=>$pac->baseUrl.'timbrarConSello',
-            'pac_api_key_development_configured'=>$pac->environment==='sandbox'&&$pac->isConfigured(),
+            'runtime_mode'=>$context['runtime_mode'],'fiscal_environment'=>$context['fiscal_environment'],
+            'pac_adapter'=>$context['pac_provider'],'allow_real_pac'=>$context['real_pac_allowed'],
+            'pac_environment'=>$context['transport_environment'],'environment_contract_coherent'=>$context['coherent'],'pac_endpoint'=>$pac->baseUrl.'timbrarConSello',
+            'pac_api_key_development_configured'=>$context['transport_environment']==='sandbox'&&$pac->isConfigured(),
             'pac_api_key_fingerprint'=>$pac->isConfigured()?substr(hash('sha256',$pac->apiKey),0,12):null,
             'credits_known'=>'not_queried','issuer_configured'=>(bool)$issuer,
             'issuer_id'=>$issuer?->id,'issuer_rfc_masked'=>$issuer?$this->mask((string)$issuer->rfc):null,
@@ -53,7 +53,7 @@ final class FiscalIntegrationStatusService
             'active_inflight_attempts_global'=>$inflightGlobal,
             'status_draft_id'=>$draftId,'status_document_id'=>$documentId?:null,
         ];
-        $checks['ready']=$f->runtimeMode==='integration'&&$f->environment==='development'&&$f->pacAdapter==='timbradorxpress'&&$f->allowRealPac&&$pac->environment==='sandbox'&&$pac->baseUrl===\Config\TimbradorXpress::SANDBOX_URL&&$checks['pac_api_key_development_configured']&&$issuer&&$series&&$csdValid&&$rfcMatch&&$keyExportable&&$checks['soap_client']&&$checks['curl']&&$pdf->provider==='timbradorxpress-tools'&&$pdf->enabled&&$checks['pdf_wsdl_configured']&&$checks['pdf_user_configured']&&$checks['pdf_password_configured']&&$template==='1';
+        $checks['ready']=$context['runtime_mode']==='integration'&&$context['fiscal_environment']==='development'&&$context['pac_provider']==='timbradorxpress'&&$context['real_pac_allowed']&&$context['transport_environment']==='sandbox'&&$context['coherent']&&$pac->baseUrl===\Config\TimbradorXpress::SANDBOX_URL&&$checks['pac_api_key_development_configured']&&$issuer&&$series&&$csdValid&&$rfcMatch&&$keyExportable&&$checks['soap_client']&&$checks['curl']&&$pdf->provider==='timbradorxpress-tools'&&$pdf->enabled&&$checks['pdf_wsdl_configured']&&$checks['pdf_user_configured']&&$checks['pdf_password_configured']&&$template==='1';
         $checks['ready_for_stamp_draft_'.$draftId]=$checks['ready']&&$draftPreflight&&$unknownForDraft===0&&$unknownForDocument===0;
         return$checks;
     }
