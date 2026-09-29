@@ -3,6 +3,29 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__, 2);
 require $root . '/tests/bootstrap.php';
+
+// TCPDF obtains K_PATH_CACHE from upload_tmp_dir. Give this runner an owned,
+// ephemeral cache instead of depending on XAMPP's optional C:\xampp\tmp.
+$pdfTempDirectory = WRITEPATH . 'test-p06-pdf-' . bin2hex(random_bytes(8));
+if (! mkdir($pdfTempDirectory, 0700, true) && ! is_dir($pdfTempDirectory)) {
+    throw new RuntimeException('Unable to create the isolated TCPDF cache.');
+}
+if (! defined('K_PATH_CACHE')) {
+    define('K_PATH_CACHE', $pdfTempDirectory . DIRECTORY_SEPARATOR);
+}
+register_shutdown_function(static function () use ($pdfTempDirectory): void {
+    if (! is_dir($pdfTempDirectory)) {
+        return;
+    }
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($pdfTempDirectory, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($iterator as $entry) {
+        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+    }
+    rmdir($pdfTempDirectory);
+});
 require_once APPPATH . 'ThirdParty/PHP-Hooks/php-hooks.php';
 helper(['plugin', 'general', 'app_files', 'currency']);
 
@@ -73,6 +96,24 @@ foreach ([
         "Caso {$case}: objetos /Image esperados.");
 }
 
+$fiscalTotals = (new App\Services\ProposalTotalsService())->calculate('100', '10', 'percentage', 'before_tax', '16', '0');
+$fiscalSummary = (object) [
+    'discount_total' => $fiscalTotals['discount'], 'discount_type' => 'before_tax',
+    'proposal_subtotal' => $fiscalTotals['subtotal'], 'total_after_discount' => $fiscalTotals['total_after_discount'],
+    'proposal_total' => $fiscalTotals['grand_total'], 'tax' => $fiscalTotals['tax'], 'tax2' => $fiscalTotals['tax2'],
+    'tax_name' => 'IVA', 'tax_name2' => '', 'currency_symbol' => '$',
+];
+$fiscalHtml = view('proposals/proposal_parts/proposal_items_table', [
+    'proposal_items' => [(object) ['id'=>1, 'product_image'=>$pngSource, 'title'=>'Fiscal', 'description'=>'', 'quantity'=>'1', 'unit_type'=>'pza', 'rate'=>'100.00', 'total'=>'100.00', 'currency_symbol'=>'$']],
+    'proposal_total_summary' => $fiscalSummary, 'proposal_item_tax_labels' => [1=>'IVA 16%'],
+    'mode' => 'download', 'table_only' => true, 'show_taxes' => true,
+]);
+$fiscalPdf = new App\Libraries\Pdf('proposal');
+$fiscalPdf->AddPage(); $fiscalPdf->writeHTML($fiscalHtml, true, false, true, false, '');
+$fiscalBinary = $fiscalPdf->Output('proposal-fiscal-template.pdf', 'S');
+$assert(str_contains($fiscalHtml, 'Precio sin impuestos') && str_contains($fiscalHtml, 'IVA 16%')
+    && !str_contains($fiscalHtml, '$104.40') && str_starts_with($fiscalBinary, '%PDF-'),
+    'Plantilla fiscal usa los totales canónicos y no duplica su resumen en el PDF.');
 
 $legacyLayout = '<table width="100%"><tbody><tr><!-- IMAGEN DE REFERENCIA -->'
     . '<td width="20%"><img src="/assets/images/image_preview.png"></td>'
@@ -104,7 +145,7 @@ $longSummary = (object) [
 $longHtml = view('proposals/proposal_parts/proposal_items_table', [
     'proposal_items' => $longItems,
     'proposal_total_summary' => $longSummary,
-    'mode' => 'download',
+    'mode' => 'download', 'table_only' => false, 'show_taxes' => false,
 ]);
 $longPdf = new App\Libraries\Pdf('proposal');
 $longPdf->AddPage();

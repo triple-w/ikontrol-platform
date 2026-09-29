@@ -29,10 +29,11 @@ La verificación sólo se aplica a una venta nueva desde proposal; no reconstruy
 
 Los lints PHP de controller, helper, servicio y vistas modificados aprobaron. `tests/SharedDomainServices/run.php` conserva **16 aserciones aprobadas**.
 
-`tests/ProposalPdfConversion/run.php` no completó en este entorno: TCPDF intenta crear archivos en `C:\xampp\tmp`, directorio inexistente y fuera del workspace. Alcanzó la preparación de data URI antes de fallar. No se modificó TCPDF ni se creó infraestructura fuera del repositorio. La validación end-to-end de binario PDF queda pendiente de un entorno con su directorio temporal configurado.
+`C:\xampp\php\php.exe tests\ProposalPdfConversion\run.php`: **27 aserciones aprobadas**. El runner define `K_PATH_CACHE` antes de cargar TCPDF, dentro de un directorio aleatorio y efímero de `writable/`, y lo elimina al terminar. No depende de `C:\xampp\tmp` ni modifica TCPDF. Valida binarios PDF, plantilla legacy y fiscal, PNG/JPEG, saltos de página, totales canónicos y ausencia de resumen duplicado en la tabla fiscal.
+
+`C:\xampp\php\php.exe tests\ProposalFiscalConversion\run.php`: **9 aserciones aprobadas**. Crea y elimina un esquema MySQL local con nombre aleatorio, con fixtures fiscales sintéticos. Cubre `tax_id`, `tax_id2`, subtotal, descuento, impuestos, total general, descuentos `before_tax`/`after_tax`, idempotencia, rollback y vínculo Proposal→Sale. No lee, copia ni escribe datos Base/Navika y no carga PAC.
 
 ## Pendientes
 
 - Aplicar P01 y la selección de plantilla mediante el despliegue individual aprobado, nunca con migrate global.
-- Ejecutar la suite PDF completa en un entorno con TCPDF temporal disponible.
-- Validar conversiones con datos fiscales configurados y propuestas históricas reales mediante fixtures aprobados; P06 no toca P07, P09 ni PAC.
+- P06 queda cerrado para integración de código. La comprobación posterior al despliegue debe usar una propuesta histórica aprobada sin recalcularla; P06 no toca P07, P09 ni PAC.
