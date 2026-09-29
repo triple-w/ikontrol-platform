@@ -58,7 +58,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P01 | Schema aditivo de selección de plantilla; pruebas de preservación | P00 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO |
 | P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | ANÁLISIS DOCUMENTADO en [ledger P02](P02_MIGRATION_LEDGER.md); revisión de datos, correctiva e historial PENDIENTES; sin ejecución sobre fuentes |
 | P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | BACKEND IMPLEMENTADO Y PROBADO; NO DESPLEGADO; gates de datos P02 y UI/comparador P07 pendientes. [Decisión P03](P03_MANUAL_SUPPLIER_COST_SCHEMA.md) |
-| P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | PENDIENTE |
+| P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | BACKEND/SCHEMA IMPLEMENTADO Y PROBADO; NO DESPLEGADO; lectura mixta, snapshot, XML/PDF y UI P11 pendientes. [Decisión P04](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md) |
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | PENDIENTE |
 | P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | PENDIENTE |
 | P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | PENDIENTE |
@@ -96,6 +96,10 @@ Después de v1.0.0, todo cambio genérico se desarrollará primero aquí. Ningun
 ## Resultado P03 — 2026-09-28
 
 Backend manual aditivo, migración canónica nueva y lectura mínima compatible con NULL, sin alterar snapshots formales ni crear documentos comerciales. [Alcance, compatibilidad y riesgos](P03_MANUAL_SUPPLIER_COST_SCHEMA.md). Validación: 47 pruebas SQLite, 57 MySQL temporal (incluye dos procesos concurrentes), 8 aserciones de render. Sólo fixtures sintéticos; schema temporal eliminado. No se aplicó migración a fuentes, no hubo PAC ni avance a P04. Commit del paquete: `reconcile: manual supplier cost schema`.
+
+## Resultado P04 — 2026-09-29
+
+Migración aditiva e idempotente para documentos fiscales externos, impuestos DR y `fiscal_documents.invoice_id` nullable, sin DML ni relaciones administrativas ficticias. Servicio mínimo de borrador con validación de UUID, saldos, moneda/equivalencia, ObjetoImpDR e impuestos. [Alcance, compatibilidad y riesgos](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md). Validación: 24 aserciones SQLite y 28 MySQL temporal; schema temporal eliminado. No se aplicó migración a fuentes ni hubo PAC. Snapshot, lectura mixta, builder, XML/PDF, rutas y UI siguen en P11. Commit del paquete: `reconcile: payment complement external schema`.
 
 ## Bitácora
 
