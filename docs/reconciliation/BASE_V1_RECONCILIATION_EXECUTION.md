@@ -60,7 +60,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | BACKEND IMPLEMENTADO Y PROBADO; NO DESPLEGADO; gates de datos P02 y UI/comparador P07 pendientes. [Decisión P03](P03_MANUAL_SUPPLIER_COST_SCHEMA.md) |
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | BACKEND/SCHEMA IMPLEMENTADO Y PROBADO; NO DESPLEGADO; lectura mixta, snapshot, XML/PDF y UI P11 pendientes. [Decisión P04](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md) |
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; adopción UI/PDF P06, suppliers P07, selector operativo P09 y complementos P11 pendientes. [Decisión P05](P05_SHARED_SERVICES.md) |
-| P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | PENDIENTE |
+| P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | IMPLEMENTADO Y PROBADO PARCIALMENTE; NO DESPLEGADO; binario PDF requiere entorno TCPDF temporal y P01 debe desplegarse individualmente. [Decisión P06](P06_PROPOSALS.md) |
 | P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | PENDIENTE |
 | P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | PENDIENTE |
 | P09 | Ambiente fiscal único, separado de CI_ENVIRONMENT; guardas y transporte MOCK sandbox/production | Contrato fiscal | PENDIENTE |
@@ -104,6 +104,10 @@ Migración aditiva e idempotente para documentos fiscales externos, impuestos DR
 ## Resultado P05 — 2026-09-29
 
 `ProposalTotalsService` centraliza subtotal, descuento, impuestos y total general; `Proposals_model` conserva su contrato legacy y delega la aritmética. `FiscalRuntimeContext` distingue modo, ambiente lógico y ambiente de transporte sólo para diagnóstico; no habilita PAC ni cambia el factory. [Alcance, compatibilidad y dependencias](P05_SHARED_SERVICES.md). Validación: 16 aserciones puras aprobadas, sin conexión de negocio ni PAC. UI/PDF P06, suppliers P07, selector operativo P09 y complementos P11 permanecen pendientes. Commit del paquete: `reconcile: shared domain services`.
+
+## Resultado P06 — 2026-09-29
+
+Renderer de proposals reconciliado con `ProposalTotalsService`, placeholders legacy/fiscales, tabla fiscal sin resumen duplicado, selección nullable de plantilla y validación de conversión Proposal→Sale. [Alcance y límites](P06_PROPOSALS.md). Validación: 13 aserciones P06 y 16 P05 aprobadas, sin PAC. El binario PDF no pudo completarse porque TCPDF exige `C:\xampp\tmp` en este entorno; no se modificó infraestructura ni librerías. P01 sigue sin desplegarse y la validación PDF completa queda pendiente. Commit del paquete: `reconcile: proposals templates and conversion`.
 
 ## Bitácora
 

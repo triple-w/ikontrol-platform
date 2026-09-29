@@ -85,6 +85,8 @@ class Proposals extends Security_Controller {
         $view_data["custom_fields"] = $this->Custom_fields_model->get_combined_details("proposals", $view_data['model_info']->id, $this->login_user->is_admin, $this->login_user->user_type)->getResult();
 
         $view_data['companies_dropdown'] = $this->_get_companies_dropdown();
+        $view_data['proposal_template_selection_available'] = $this->proposal_template_selection_available();
+        $view_data['proposal_templates_dropdown'] = $this->proposal_templates_dropdown();
         if (!$view_data['model_info']->company_id) {
             $view_data['model_info']->company_id = get_default_company_id();
         }
@@ -154,6 +156,16 @@ class Proposals extends Security_Controller {
             "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id(),
             "note" => $this->request->getPost('proposal_note')
         );
+        $selected_template = $this->selected_proposal_template($this->request->getPost('proposal_template_id'));
+        if ($this->proposal_template_selection_available()) {
+            $proposal_data['proposal_template_id'] = $selected_template ? (int) $selected_template->id : null;
+            if ($id && !$is_clone) {
+                $current_template_id = (int) ($this->Proposals_model->get_one($id)->proposal_template_id ?? 0);
+                if ((int) ($selected_template->id ?? 0) !== $current_template_id && $selected_template) {
+                    $proposal_data['content'] = $selected_template->template;
+                }
+            }
+        }
 
         //save random code for new proposal
         if (!$id) {
@@ -161,9 +173,15 @@ class Proposals extends Security_Controller {
             $proposal_data["public_key"] = make_random_string();
 
             //add default template
-            if (get_setting("default_proposal_template")) {
+            if ($selected_template) {
+                $proposal_data["content"] = $selected_template->template;
+            } else if (get_setting("default_proposal_template")) {
                 $Proposal_templates_model = model("App\Models\Proposal_templates_model");
-                $proposal_data["content"] = $Proposal_templates_model->get_one(get_setting("default_proposal_template"))->template;
+                $default_template = $Proposal_templates_model->get_one(get_setting("default_proposal_template"));
+                if ($default_template && $default_template->id) {
+                    $proposal_data["content"] = $default_template->template;
+                    if ($this->proposal_template_selection_available()) $proposal_data['proposal_template_id'] = (int) $default_template->id;
+                }
             }
         }
 
@@ -186,6 +204,7 @@ class Proposals extends Security_Controller {
             $proposal_data["converted_at"] = null;
             $proposal_data["converted_by"] = null;
             $proposal_data["meta_data"] = serialize(array());
+            if ($this->proposal_template_selection_available()) $proposal_data['proposal_template_id'] = $main_proposal_info->proposal_template_id ?? null;
         }
 
         $proposal_id = $this->Proposals_model->ci_save($proposal_data, $id);
@@ -214,6 +233,26 @@ class Proposals extends Security_Controller {
         } else {
             echo json_encode(array("success" => false, 'message' => app_lang('error_occurred')));
         }
+    }
+
+    private function proposal_template_selection_available(): bool {
+        return $this->db->fieldExists('proposal_template_id', 'proposals');
+    }
+
+    private function proposal_templates_dropdown(): array {
+        if (! $this->proposal_template_selection_available()) return array();
+        $templates = model('App\\Models\\Proposal_templates_model')->get_all_where(array('deleted' => 0))->getResult();
+        $options = array('' => 'Plantilla legacy');
+        foreach ($templates as $template) $options[$template->id] = $template->title;
+        return $options;
+    }
+
+    private function selected_proposal_template($value): ?object {
+        if ($value === null || $value === '') return null;
+        if (!ctype_digit((string) $value) || (int) $value < 1) throw new \InvalidArgumentException('La plantilla seleccionada no es válida.');
+        $template = model('App\\Models\\Proposal_templates_model')->get_one((int) $value);
+        if (! $template || ! $template->id || !empty($template->deleted)) throw new \InvalidArgumentException('La plantilla seleccionada no está disponible.');
+        return $template;
     }
 
     //update proposal status

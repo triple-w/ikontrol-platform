@@ -5,6 +5,9 @@ if (!$color) {
 }
 
 $pdf_render = isset($mode);
+$table_only = !empty($table_only);
+$show_taxes = !empty($show_taxes);
+$proposal_item_tax_labels = $proposal_item_tax_labels ?? [];
 $image_column_width = $pdf_render ? 18 : 20;
 $item_column_width = $pdf_render ? 42 : 40;
 $image_max_width = $pdf_render ? 90 : 95;
@@ -18,7 +21,7 @@ $discount_row = '<tr>
 
 $total_after_discount_row = '<tr>
                                     <td colspan="4" style="text-align: right;">' . app_lang("total_after_discount") . '</td>
-                                    <td style="text-align: right; width: 20%; border: 1px solid #fff; background-color: #f4f4f4;">' . to_currency($proposal_total_summary->proposal_subtotal - $proposal_total_summary->discount_total, $proposal_total_summary->currency_symbol) . '</td>
+                                    <td style="text-align: right; width: 20%; border: 1px solid #fff; background-color: #f4f4f4;">' . to_currency($proposal_total_summary->total_after_discount ?? $proposal_total_summary->proposal_subtotal, $proposal_total_summary->currency_symbol) . '</td>
                                 </tr>';
 ?>
 
@@ -27,7 +30,8 @@ $total_after_discount_row = '<tr>
         <th style="width: <?php echo $image_column_width; ?>%; border-right: 1px solid #eee; text-align: center;"> Imagen </th>
         <th style="width: <?php echo $item_column_width; ?>%; border-right: 1px solid #eee;"> <?php echo app_lang("item"); ?> </th>
         <th style="text-align: center; width: 12%; border-right: 1px solid #eee;"> <?php echo app_lang("quantity"); ?></th>
-        <th style="text-align: right; width: 14%; border-right: 1px solid #eee;"> <?php echo app_lang("rate"); ?></th>
+        <th style="text-align: right; width: 14%; border-right: 1px solid #eee;"> <?php echo $show_taxes ? 'Precio sin impuestos' : app_lang("rate"); ?></th>
+        <?php if ($show_taxes) { ?><th style="text-align: right; width: 14%; border-right: 1px solid #eee;">Impuestos</th><?php } ?>
         <th style="text-align: right; width: 14%; "> <?php echo app_lang("total"); ?></th>
     </tr>
     <?php
@@ -58,9 +62,11 @@ $total_after_discount_row = '<tr>
             </td>
             <td style="text-align: center; width: 12%; border: 1px solid #fff;"> <?php echo $item->quantity . " " . $item->unit_type; ?></td>
             <td style="text-align: right; width: 14%; border: 1px solid #fff;"> <?php echo to_currency($item->rate, $item->currency_symbol); ?></td>
+            <?php if ($show_taxes) { ?><td style="text-align: right; width: 14%; border: 1px solid #fff;"> <?php echo esc($proposal_item_tax_labels[$item->id] ?? '—'); ?></td><?php } ?>
             <td style="text-align: right; width: 14%; border: 1px solid #fff;"> <?php echo to_currency($item->total, $item->currency_symbol); ?></td>
         </tr>
     <?php } ?>
+    <?php if ($table_only) { return; } ?>
     <tr>
         <td colspan="4" style="text-align: right;"><?php echo app_lang("sub_total"); ?></td>
         <td style="text-align: right; width: 20%; border: 1px solid #fff; background-color: #f4f4f4;">

@@ -2111,11 +2111,40 @@ if (!function_exists('prepare_proposal_view')) {
             $parser_data["PROPOSAL_ID"] = get_proposal_id($proposal_info->id);
             $parser_data["PROPOSAL_DATE"] = format_to_date($proposal_info->proposal_date, false);
             $parser_data["PROPOSAL_EXPIRY_DATE"] = format_to_date($proposal_info->valid_until, false);
+            $tax_labels = array();
+            try {
+                $tax_service = new \App\Services\Fiscal\CommercialTaxBreakdownService();
+                foreach ($proposal_data['proposal_items'] ?? array() as $proposal_item) {
+                    $line = $tax_service->lineForDocument('proposals', 'proposal_items', 'proposal_id', (int) $proposal_item->id);
+                    if (!empty($line['ready'])) {
+                        $parts = array();
+                        foreach ((array) ($line['calculated_taxes'] ?? array()) as $tax) {
+                            $parts[] = ($tax['tax_type'] === 'withholding' ? '-' : '+')
+                                . ($tax['tax_code'] ?? '') . ' ' . ($tax['tax_amount'] ?? '0.000000');
+                        }
+                        $tax_labels[$proposal_item->id] = $parts ? implode(', ', $parts) : 'Exento';
+                    }
+                }
+            } catch (\Throwable) {
+                // Legacy proposals without fiscal configuration retain their normal renderer.
+            }
+            $proposal_data['proposal_item_tax_labels'] = $tax_labels;
             $parser_data["PROPOSAL_ITEMS"] = view("proposals/proposal_parts/proposal_items_table", $proposal_data);
+            $parser_data["PROPOSAL_ITEMS_WITH_TAXES"] = view("proposals/proposal_parts/proposal_items_table", $proposal_data + array('table_only' => true, 'show_taxes' => true));
             $parser_data["PROPOSAL_SUBTOTAL"] = to_currency($proposal_total_summary->proposal_subtotal, $proposal_total_summary->currency_symbol);
             $parser_data["PROPOSAL_DISCOUNT"] = to_currency($proposal_total_summary->discount_total, $proposal_total_summary->currency_symbol);
-            $parser_data["PROPOSAL_TOTAL_AFTER_DISCOUNT"] = to_currency($proposal_total_summary->proposal_subtotal - $proposal_total_summary->discount_total, $proposal_total_summary->currency_symbol);
+            $parser_data["PROPOSAL_TOTAL_AFTER_DISCOUNT"] = to_currency($proposal_total_summary->total_after_discount, $proposal_total_summary->currency_symbol);
             $parser_data["PROPOSAL_TOTAL"] = to_currency($proposal_total_summary->proposal_total, $proposal_total_summary->currency_symbol);
+            $discount_visible = \App\Services\Fiscal\FiscalDecimal::micros((string) $proposal_total_summary->discount_total) > 0;
+            $row = static function ($label, $value) use ($proposal_total_summary) {
+                return '<tr><td style="text-align:right;">' . esc($label) . '</td><td style="text-align:right;">'
+                    . to_currency($value, $proposal_total_summary->currency_symbol) . '</td></tr>';
+            };
+            $parser_data["PROPOSAL_DISCOUNT_ROW"] = $discount_visible ? $row(app_lang('discount'), $proposal_total_summary->discount_total) : '';
+            $parser_data["PROPOSAL_TOTAL_AFTER_DISCOUNT_ROW"] = $discount_visible ? $row(app_lang('total_after_discount'), $proposal_total_summary->total_after_discount) : '';
+            $parser_data["PROPOSAL_TAXES"] = ($proposal_total_summary->tax ? $row($proposal_total_summary->tax_name, $proposal_total_summary->tax) : '')
+                . ($proposal_total_summary->tax2 ? $row($proposal_total_summary->tax_name2, $proposal_total_summary->tax2) : '');
+            $parser_data["PROPOSAL_GRAND_TOTAL"] = $row(app_lang('total'), $proposal_total_summary->proposal_total);
             $parser_data["PROPOSAL_NOTE"] = $proposal_info->note;
             $parser_data["APP_TITLE"] = get_setting("app_title");
 
@@ -2193,11 +2222,16 @@ if (!function_exists('get_available_proposal_variables')) {
                 "PROPOSAL_DATE",
                 "PROPOSAL_EXPIRY_DATE",
                 "PROPOSAL_ITEMS",
+                "PROPOSAL_ITEMS_WITH_TAXES",
                 "PROPOSAL_NOTE",
                 "PROPOSAL_SUBTOTAL",
                 "PROPOSAL_DISCOUNT",
                 "PROPOSAL_TOTAL_AFTER_DISCOUNT",
                 "PROPOSAL_TOTAL"
+                ,"PROPOSAL_DISCOUNT_ROW",
+                "PROPOSAL_TOTAL_AFTER_DISCOUNT_ROW",
+                "PROPOSAL_TAXES",
+                "PROPOSAL_GRAND_TOTAL"
             ),
             "company_info" => array(
                 "APP_TITLE",

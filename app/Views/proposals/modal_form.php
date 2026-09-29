@@ -7,6 +7,15 @@
             <input type="hidden" name="is_clone" value="1" />
         <?php } ?>
 
+        <?php if (!empty($proposal_template_selection_available)) { ?>
+            <div class="form-group"><div class="row">
+                <label for="proposal_template_id" class="col-md-3">Plantilla</label>
+                <div class="col-md-9">
+                    <?php echo form_dropdown('proposal_template_id', $proposal_templates_dropdown, array($model_info->proposal_template_id ?? ''), "class='select2' id='proposal_template_id'"); ?>
+                </div>
+            </div></div>
+        <?php } ?>
+
         <div class="form-group">
             <div class="row">
                 <label for="proposal_date" class=" col-md-3"><?php echo app_lang('proposal_date'); ?></label>
@@ -146,6 +155,7 @@
         });
         $("#proposal-form .tax-select2").select2();
         $("#proposal_client_id").select2();
+        $("#proposal_template_id").select2();
 
         $("#company_id").select2({data: <?php echo json_encode($companies_dropdown); ?>});
 

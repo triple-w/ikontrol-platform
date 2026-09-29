@@ -75,8 +75,8 @@ final class ProposalToInvoiceService
             'due_date' => $dueDate,
             'status' => 'not_paid',
             'commercial_status' => 'open',
-            'tax_id' => 0,
-            'tax_id2' => 0,
+            'tax_id' => (int) ($proposal->tax_id ?? 0),
+            'tax_id2' => (int) ($proposal->tax_id2 ?? 0),
             'tax_id3' => 0,
             'company_id' => (int) $proposal->company_id,
             'note' => $proposal->note,
@@ -94,7 +94,9 @@ final class ProposalToInvoiceService
             'no_of_cycles' => 0,
         ];
 
-        return $this->creator->create($header, $rows, false);
+        $invoiceId = $this->creator->create($header, $rows, false);
+        $this->assertTotalsPreserved($proposal, $rows, $invoiceId);
+        return $invoiceId;
     }
 
     private function validateRelations(object $proposal): void
@@ -117,5 +119,32 @@ final class ProposalToInvoiceService
                 throw new RuntimeException('La propuesta contiene un impuesto inexistente o eliminado.');
             }
         }
+    }
+
+    private function assertTotalsPreserved(object $proposal, array $rows, int $invoiceId): void
+    {
+        $subtotal = '0.000000';
+        foreach ($rows as $row) $subtotal = FiscalDecimal::add($subtotal, (string) $row['total']);
+        $percentage = function (int $id) {
+            if (! $id) return '0.000000';
+            return (string) ($this->db->table('taxes')->select('percentage')->where(['id' => $id, 'deleted' => 0])->get(1)->getRow()->percentage ?? '0');
+        };
+        $expected = (new ProposalTotalsService())->calculate(
+            $subtotal, $proposal->discount_amount ?? '0', $proposal->discount_amount_type ?? 'fixed_amount',
+            $proposal->discount_type ?? 'before_tax', $percentage((int) ($proposal->tax_id ?? 0)), $percentage((int) ($proposal->tax_id2 ?? 0))
+        );
+        $invoice = $this->db->table('invoices')->select('invoice_subtotal,discount_total,tax,tax2,invoice_total')
+            ->where('id', $invoiceId)->get(1)->getRow();
+        if (! $invoice || ! $this->sameCurrencyAmount($expected['grand_total'], (string) $invoice->invoice_total)
+            || ! $this->sameCurrencyAmount($expected['subtotal'], (string) $invoice->invoice_subtotal)
+            || ! $this->sameCurrencyAmount($expected['discount'], (string) $invoice->discount_total)) {
+            throw new RuntimeException('Los totales de la venta no conservan la propuesta.');
+        }
+    }
+
+    private function sameCurrencyAmount(string $expected, string $actual): bool
+    {
+        $calculator = new \App\Services\Fiscal\FiscalDecimalCalculator();
+        return $calculator->money($expected) === $calculator->money($actual);
     }
 }

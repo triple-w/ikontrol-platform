@@ -24,7 +24,7 @@
 
     $total_after_discount_row = "<tr>
                                     <td>" . app_lang("total_after_discount") . "</td>
-                                    <td style='width:120px;'>" . to_currency($proposal_total_summary->proposal_subtotal - $proposal_total_summary->discount_total, $proposal_total_summary->currency_symbol) . "</td>
+                                    <td style='width:120px;'>" . to_currency($proposal_total_summary->total_after_discount ?? $proposal_total_summary->proposal_subtotal, $proposal_total_summary->currency_symbol) . "</td>
                                     $table_data
                                 </tr>";
 
