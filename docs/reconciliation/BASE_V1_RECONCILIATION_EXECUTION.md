@@ -62,7 +62,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; adopción UI/PDF P06, suppliers P07, selector operativo P09 y complementos P11 pendientes. [Decisión P05](P05_SHARED_SERVICES.md) |
 | P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; P01 debe desplegarse individualmente. PDF binario y conversión fiscal validados con recursos efímeros aislados. [Decisión P06](P06_PROPOSALS.md) |
 | P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere despliegue individual P03 y gates de datos P02. [Decisión P07](P07_SUPPLIERS.md) |
-| P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | PENDIENTE |
+| P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | VALIDADO; NO DESPLEGADO; schema P02 completo, sin migración ni cambio funcional nuevo. [Decisión P08](P08_WAREHOUSES.md) |
 | P09 | Ambiente fiscal único, separado de CI_ENVIRONMENT; guardas y transporte MOCK sandbox/production | Contrato fiscal | PENDIENTE |
 | P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | PENDIENTE |
 | P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | PENDIENTE |
@@ -112,6 +112,10 @@ Renderer de proposals reconciliado con `ProposalTotalsService`, placeholders leg
 ## Resultado P07 — 2026-09-29
 
 Captura manual protegida desde Suppliers y comparador que incluye origen manual/formal sin escrituras comerciales. El historial manual queda append-only: no hay edición/borrado sin contrato de auditoría y schema específico. [Alcance y límites](P07_SUPPLIERS.md). Validación: 18 aserciones SQLite P07, 47 SQLite y 57 MySQL temporal P03, y 8 de vistas; sin PAC ni datos fuente. Requiere desplegar P03 individualmente y cerrar gates P02.
+
+## Resultado P08 — 2026-09-29
+
+Base conserva movimientos confirmados, transferencias parciales/con diferencia y etiquetas UTF-8 como contrato canónico. Las tres migraciones de almacén tienen efecto estructural completo según P02; no se crea migración nueva. [Alcance y evidencia](P08_WAREHOUSES.md). Validación: 11 aserciones en esquema MySQL temporal propio, eliminado al finalizar; sin PAC ni datos fuente. Commit de validación: `test: validate canonical warehouse logistics`.
 
 ## Bitácora
 
