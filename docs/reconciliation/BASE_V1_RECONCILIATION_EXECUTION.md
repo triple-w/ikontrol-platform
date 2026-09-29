@@ -56,7 +56,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | --- | --- | --- | --- |
 | P00 | Preservar Base y caracterizar Baseline; fixtures aislados reproducibles | Checkpoint | IMPLEMENTADO; ver bitácora |
 | P01 | Schema aditivo de selección de plantilla; pruebas de preservación | P00 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO |
-| P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | PENDIENTE |
+| P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | ANÁLISIS DOCUMENTADO en [ledger P02](P02_MIGRATION_LEDGER.md); revisión de datos, correctiva e historial PENDIENTES; sin ejecución sobre fuentes |
 | P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | BACKEND IMPLEMENTADO Y PROBADO; NO DESPLEGADO; gates de datos P02 y UI/comparador P07 pendientes. [Decisión P03](P03_MANUAL_SUPPLIER_COST_SCHEMA.md) |
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | PENDIENTE |
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | PENDIENTE |
@@ -110,3 +110,4 @@ Backend manual aditivo, migración canónica nueva y lectura mínima compatible 
 9. P01: **16 pruebas SQLite + 16 pruebas MySQL aprobadas**; schema MySQL temporal propio eliminado. Baseline revalidado: **13 aprobadas**. Lint y diff-check correctos. Commit del paquete: `reconcile: proposal template schema foundation`.
 10. Verificación de fuentes posterior: Base sigue con 172 tablas/65 registros, Navika con 174/86; ninguna tiene aún `proposal_template_id`. Navika conserva git status limpio. No se aplicó ni registró la migración en las bases fuente.
 11. Próximo paquete: P02, conciliación de las 19 históricas con lecturas DDL/DML y correcciones nuevas cuando proceda. El proyecto tiene 85 archivos de migración; las 19 originales sin registro más P01 no desplegada siguen pendientes de conciliación/despliegue. **No se declara v1.0.0 ni se crea tag antes de superar todos los gates.**
+12. P02, 2026-09-28: [ledger de exactamente 19 históricas](P02_MIGRATION_LEDGER.md) contrastado con la referencia de esquema, fuentes acotadas y entradas pertinentes de la auditoría. Análisis terminado; no equivale a conciliación aplicada ni a cierre del paquete operativo. No se ejecutaron migraciones, DML, conexiones a bases fuente ni PAC; no se avanza a P03. El ledger distingue efectos vigentes, DML no demostrable, riesgos y el procedimiento propuesto para desplegar P01 individualmente.
