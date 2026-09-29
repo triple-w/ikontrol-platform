@@ -73,16 +73,11 @@ $production = clone $provider;
 $production->environment = 'production';
 $production->baseUrl = Config\TimbradorXpress::PRODUCTION_URL;
 $production->productionEnabled = true;
-try {
-    (new App\Services\Fiscal\Pac\FiscalPacAdapterFactory(
+$productionAdapter = (new App\Services\Fiscal\Pac\FiscalPacAdapterFactory(
         $config(true, 'timbradorxpress', true, 'production'),
         $production
     ))->create();
-    $blocked = false;
-} catch (Throwable) {
-    $blocked = true;
-}
-$assert($blocked, 'Production remains blocked by the master factory.');
+$assert($productionAdapter instanceof App\Services\Fiscal\Pac\TimbradorXpressRestAdapter, 'Production uses the canonical adapter when its explicit guard is satisfied.');
 
 $service = (string) file_get_contents(APPPATH . 'Services/Fiscal/Pac/FiscalStampingService.php');
 $controller = (string) file_get_contents(APPPATH . 'Controllers/Fiscal/Stamping.php');

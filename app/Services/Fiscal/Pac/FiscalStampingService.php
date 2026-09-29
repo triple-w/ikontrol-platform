@@ -387,6 +387,10 @@ final class FiscalStampingService
             if (!$document) {
                 throw new RuntimeException('El documento fiscal no existe.');
             }
+            $documentEnvironment = $environment === 'production' ? 'production' : 'development';
+            if ((string)($document->environment ?? '') !== $documentEnvironment) {
+                throw new RuntimeException('El documento pertenece a otro ambiente fiscal.');
+            }
             $signature = $this->db->table('fiscal_document_signatures')->where([
                 'fiscal_document_id' => $documentId,
                 'signature_verified' => 1,

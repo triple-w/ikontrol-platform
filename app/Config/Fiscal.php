@@ -18,7 +18,7 @@ class Fiscal extends BaseConfig
     public bool $previewMode = false;
     public bool $stampingEnabled = false;
 
-    public string $environment = 'local';
+    public string $environment = 'development';
 
     public bool $allowRealPac = false;
     public bool $allowExternalPdf = false;
@@ -67,7 +67,13 @@ class Fiscal extends BaseConfig
         // Existing automated suites inject network-free adapters; production and
         // preview remain fail-closed unless the server opts in explicitly.
         $this->stampingEnabled = filter_var(env('fiscal.stampingEnabled', ENVIRONMENT === 'testing'), FILTER_VALIDATE_BOOL);
-        $this->environment = strtolower(trim((string) env('fiscal.environment', 'local')));
+        $configuredEnvironment = strtolower(trim((string) env('fiscal.environment', 'development')));
+        $this->environment = in_array($configuredEnvironment, ['local', 'sandbox', 'development'], true)
+            ? 'development'
+            : $configuredEnvironment;
+        if (!in_array($this->environment, ['development', 'production'], true)) {
+            throw new \RuntimeException('fiscal.environment debe ser sandbox/development o production.');
+        }
         $this->allowRealPac = filter_var(env('fiscal.allowRealPac', false), FILTER_VALIDATE_BOOL);
         $this->allowExternalPdf = filter_var(env('fiscal.allowExternalPdf', false), FILTER_VALIDATE_BOOL);
         $this->pacAdapter = strtolower(trim((string) env('fiscal.pacAdapter', 'fake')));

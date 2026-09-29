@@ -9,7 +9,7 @@ $all=implode("\n",array_map('file_get_contents',$migrations));
 $check(!preg_match('/\b(FLOAT|DOUBLE)\b/i',$all),'Increment 09 introduces no FLOAT or DOUBLE fields.');
 $check(str_contains($all,"'encrypted_api_key'=>''")&&str_contains($all,"'pac_configuration_id'=>['type'=>'BIGINT','unsigned'=>true,'null'=>true]"),'Corrective migration scrubs legacy credentials and removes the runtime dependency.');
 $adapter=$read('app/Services/Fiscal/Pac/TimbradorXpressRestAdapter.php');
-$check(str_contains($adapter,".'timbrarConSello'")&&str_contains($adapter,"'form_params'"),'REST adapter posts form data to timbrarConSello.');
+$check((bool)preg_match("/baseUrl\\s*\\.\\s*'timbrarConSello'/",$adapter)&&str_contains($adapter,"'form_params'"),'REST adapter posts form data to timbrarConSello.');
 $check(str_contains($adapter,"'apikey'=>\$config->apiKey")&&str_contains($adapter,"'xmlCFDI'=>\$request->signedXml")&&str_contains($adapter,"'keyPEM'=>\$request->keyPem"),'REST adapter sends the confirmed timbrarConSello fields.');
 $check(!preg_match('/cerPEM|timbrarJSON|timbrarTXT|withoutVerifying/i',$adapter),'Adapter contains no certificate, JSON/TXT or insecure TLS operation.');
 $check(str_contains($adapter,"'verify'=>true"),'TLS verification remains enabled.');

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Services\Fiscal\Pac;
 
+use App\Services\Fiscal\FiscalRuntimeContext;
+use Config\Fiscal;
 use Config\TimbradorXpress;
 use RuntimeException;
 use Throwable;
@@ -14,7 +16,8 @@ final class FiscalPacCreditService
     public function __construct(
         private mixed $db = null,
         private ?TimbradorXpress $configuration = null,
-        mixed $client = null
+        mixed $client = null,
+        private ?Fiscal $fiscal = null
     ) {
         $this->db ??= db_connect();
         $this->client = $client ?? service('curlrequest');
@@ -23,9 +26,8 @@ final class FiscalPacCreditService
     public function consult(int $issuerProfileId, ?int $userId = null): array
     {
         $config = $this->configuration ?? config('TimbradorXpress');
-        if ($config->environment !== 'sandbox') throw new RuntimeException('La consulta de créditos sólo está habilitada para development.');
-        $config->assertSandbox();
-        if (!$config->isConfigured()) throw new RuntimeException('PAC development no configurado.');
+        $context = FiscalRuntimeContext::assertPacOperational($this->fiscal ?? config('Fiscal'), $config);
+        $environment = $context['fiscal_environment'];
         $issuer = $this->db->table('fiscal_profiles')->where(['id' => $issuerProfileId, 'profile_type' => 'issuer'])->get(1)->getRow();
         if (!$issuer) throw new RuntimeException('Emisor fiscal no encontrado.');
 
@@ -44,7 +46,7 @@ final class FiscalPacCreditService
         $this->db->table('fiscal_pac_credit_consultations')->insert([
             'issuer_profile_id' => $issuerProfileId,
             'provider' => 'timbradorxpress',
-            'environment' => 'development',
+            'environment' => $environment,
             'available_credits' => $parsed['available_credits'],
             'provider_code' => $parsed['provider_code'],
             'provider_message' => $parsed['provider_message'],
@@ -54,10 +56,10 @@ final class FiscalPacCreditService
             'created_by' => $userId,
         ]);
         $consultationId=(int)$this->db->insertID();
-        if($this->db->tableExists('fiscal_pac_credit_snapshots'))$this->db->table('fiscal_pac_credit_snapshots')->insert(['provider'=>'timbradorxpress','environment'=>'development','available_credits'=>$parsed['available_credits'],'consulted_at'=>$consultedAt,'provider_code'=>$parsed['provider_code'],'created_at'=>$consultedAt]);
+        if($this->db->tableExists('fiscal_pac_credit_snapshots'))$this->db->table('fiscal_pac_credit_snapshots')->insert(['provider'=>'timbradorxpress','environment'=>$environment,'available_credits'=>$parsed['available_credits'],'consulted_at'=>$consultedAt,'provider_code'=>$parsed['provider_code'],'created_at'=>$consultedAt]);
         return $parsed + [
             'provider' => 'timbradorxpress',
-            'environment' => 'development',
+            'environment' => $environment,
             'consulted_at' => $consultedAt,
             'consultation_id' => $consultationId,
         ];

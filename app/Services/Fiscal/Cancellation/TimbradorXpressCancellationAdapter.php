@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Services\Fiscal\Cancellation;
 
 use App\Contracts\Fiscal\Cancellation\FiscalCancellationAdapterInterface;
+use App\Services\Fiscal\FiscalRuntimeContext;
+use Config\Fiscal;
 use Config\TimbradorXpress;
 use RuntimeException;
 use Throwable;
@@ -11,7 +13,7 @@ use Throwable;
 final class TimbradorXpressCancellationAdapter implements FiscalCancellationAdapterInterface
 {
     private $client;
-    public function __construct(private readonly ?TimbradorXpress $configuration=null,$client=null){$this->client=$client?:service('curlrequest');}
+    public function __construct(private readonly ?TimbradorXpress $configuration=null,$client=null,private readonly ?Fiscal $fiscal=null){$this->client=$client?:service('curlrequest');}
 
     public function cancel(array $request):array
     {
@@ -32,8 +34,7 @@ final class TimbradorXpressCancellationAdapter implements FiscalCancellationAdap
     private function call(string$operation,array$params,bool$cancellation):array
     {
         $config=$this->configuration??config('TimbradorXpress');
-        if(!$config->isConfigured())throw new RuntimeException('TimbradorXpress no está configurado.');
-        $config->assertSandbox();
+        FiscalRuntimeContext::assertPacOperational($this->fiscal??config('Fiscal'),$config);
         try{
             $response=$this->client->post($config->baseUrl.$operation,['form_params'=>['apikey'=>$config->apiKey]+$params,'connect_timeout'=>$config->connectTimeout,'timeout'=>$config->requestTimeout,'verify'=>true,'http_errors'=>false,'headers'=>['Accept'=>'application/json','Content-Type'=>'application/x-www-form-urlencoded']]);
             $body=(string)$response->getBody();$http=(int)$response->getStatusCode();return$this->interpret($body,$http,$operation);

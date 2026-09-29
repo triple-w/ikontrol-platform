@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace App\Commands;
 use App\Services\Fiscal\FiscalIntegrationStatusService;
+use App\Services\Fiscal\FiscalRuntimeContext;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use RuntimeException;
@@ -15,8 +16,8 @@ final class FiscalIntegrationPrepare extends BaseCommand
     {
         $db=db_connect();$f=config('Fiscal');$pac=config('TimbradorXpress');$pdf=config('FiscalPdfProvider');
         try{
-            if($f->runtimeMode!=='integration'||$f->pacAdapter!=='timbradorxpress'||!$f->allowRealPac||$f->environment!=='development')throw new RuntimeException('Configura runtimeMode=integration, PAC real y environment=development.');
-            if(!$pac->isConfigured())throw new RuntimeException('Falta la API key PAC de development.');
+            $context=FiscalRuntimeContext::assertPacOperational($f,$pac);
+            if($context['fiscal_environment']!=='development')throw new RuntimeException('Este comando prepara únicamente datos sandbox/development.');
             if(!$pdf->enabled||$pdf->username===''||$pdf->password===''||$pdf->wsdl==='')throw new RuntimeException('Faltan credenciales o WSDL de WSTools33.');
             $issuer=$db->table('fiscal_profiles')->where('profile_type','issuer')->whereIn('status',['active','ready'])->orderBy('is_default','DESC')->get(1)->getRow();
             if(!$issuer)throw new RuntimeException('Falta un emisor activo.');

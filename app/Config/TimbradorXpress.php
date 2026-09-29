@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Config;
 
+use App\Services\Fiscal\FiscalRuntimeContext;
 use CodeIgniter\Config\BaseConfig;
 use RuntimeException;
 
@@ -23,10 +24,11 @@ final class TimbradorXpress extends BaseConfig
     public function __construct()
     {
         parent::__construct();
-        $this->environment=strtolower(trim((string)env('TIMBRADORXPRESS_ENVIRONMENT','sandbox')));
-        if(!in_array($this->environment,['sandbox','production'],true))throw new RuntimeException('TIMBRADORXPRESS_ENVIRONMENT debe ser sandbox o production.');
+        $fiscalEnvironment=strtolower(trim((string)env('fiscal.environment','development')));
+        $this->environment=FiscalRuntimeContext::transportFor($fiscalEnvironment);
+        $legacyEnvironment=strtolower(trim((string)env('TIMBRADORXPRESS_ENVIRONMENT','')));
+        if($legacyEnvironment!==''&&$legacyEnvironment!==$this->environment)throw new RuntimeException('TIMBRADORXPRESS_ENVIRONMENT no coincide con fiscal.environment.');
         $this->productionEnabled=filter_var(env('TIMBRADORXPRESS_PRODUCTION_ENABLED',false),FILTER_VALIDATE_BOOL);
-        if($this->environment==='production'&&!$this->productionEnabled)throw new RuntimeException('TimbradorXpress producción está deshabilitado por el servidor.');
         $sandbox=(string)env('TIMBRADORXPRESS_BASE_URL_SANDBOX',self::SANDBOX_URL);
         $production=(string)env('TIMBRADORXPRESS_BASE_URL_PRODUCTION',self::PRODUCTION_URL);
         if($sandbox!==self::SANDBOX_URL||$production!==self::PRODUCTION_URL)throw new RuntimeException('Los endpoints TimbradorXpress no pertenecen a la lista permitida.');

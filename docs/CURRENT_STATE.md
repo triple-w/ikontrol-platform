@@ -1,16 +1,16 @@
 # Estado actual
 
-Revisión: 2026-09-28. Corte del código inspeccionado: `d59eca7b28c4376d7717f4f3956783ac04b6f1e4`, rama `main`. El árbol estaba limpio antes de esta preparación documental. Este corte no pretende ser el HEAD permanente después de editar documentación.
+Revisión: 2026-09-29. Rama canónica: `main`. iKontrol 1.0.0 aún no está liberado.
 
 ## Situación operativa
 
 `C:/xampp/htdocs/ikontrol-platform` sigue siendo el único destino canónico. `C:/xampp/htdocs/ikontrol2/ikon2.0` es únicamente fuente de comparación. iKontrol 1.0.0 **no está liberado**; no había tag `v1.0.0` en este corte.
 
-El trabajo exclusivo de Base quedó preservado en el checkpoint `e044301`. Se validó el diagnóstico Baseline (`3a90daf`) y se incorporó el fundamento estructural de selección de plantilla (`d59eca7`), con pruebas aisladas. Esa nueva migración **no se aplicó** a las BD de Base ni Navika. No implica que la selección de plantilla en UI ya esté integrada.
+El trabajo exclusivo de Base quedó preservado desde el checkpoint `e044301`. La conciliación implementó y validó de forma aislada schema aditivo, proposals, costos manuales de proveedor, documentos externos de complementos y ambiente fiscal; Warehouses quedó validado sin cambio funcional. Ninguna migración canónica nueva se ha aplicado a las BD de Base o Navika.
 
-El [registro de ejecución](reconciliation/BASE_V1_RECONCILIATION_EXECUTION.md) es la única checklist detallada de paquetes; [P01](reconciliation/P01_PROPOSAL_TEMPLATE_SCHEMA.md) conserva decisiones y resultados de pruebas. El siguiente paquete funcional pendiente es la revisión individual de las 19 migraciones históricas sin registro. Los costos manuales, documentos externos de complementos y mejoras Navika de producción/reintentos siguen pendientes de conciliación.
+El [registro de ejecución](reconciliation/BASE_V1_RECONCILIATION_EXECUTION.md) es la checklist detallada. P01–P09 cuentan con decisiones y evidencia; sus migraciones siguen sin aplicarse a las bases fuente. P09 centralizó el ambiente fiscal en `FiscalRuntimeContext`: `fiscal.environment` elige sandbox/development o production sin depender del runtime de la app. Production quedó validado sólo con transporte MOCK y configuración fail-closed. El siguiente paquete es P10; reintentos, resultados inciertos, locks avanzados y lifecycle de wallet siguen pendientes.
 
-**Alcance de esta preparación:** documentación y referencia de esquema. No reanuda los paquetes funcionales, no aplica migraciones ni habilita PAC. La autorización anterior de implementación no cambia este alcance solicitado.
+No se han aplicado migraciones sobre Base/Navika ni se ha ejecutado PAC real durante la conciliación.
 
 ## Cómo interpretar la evidencia
 
