@@ -61,7 +61,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | BACKEND/SCHEMA IMPLEMENTADO Y PROBADO; NO DESPLEGADO; lectura mixta, snapshot, XML/PDF y UI P11 pendientes. [Decisión P04](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md) |
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; adopción UI/PDF P06, suppliers P07, selector operativo P09 y complementos P11 pendientes. [Decisión P05](P05_SHARED_SERVICES.md) |
 | P06 | Proposals: placeholders legacy/fiscales, selección, imágenes, UI/preview/PDF, aceptación y rollback de conversión | P01, P05 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; P01 debe desplegarse individualmente. PDF binario y conversión fiscal validados con recursos efímeros aislados. [Decisión P06](P06_PROPOSALS.md) |
-| P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | PENDIENTE |
+| P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere despliegue individual P03 y gates de datos P02. [Decisión P07](P07_SUPPLIERS.md) |
 | P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | PENDIENTE |
 | P09 | Ambiente fiscal único, separado de CI_ENVIRONMENT; guardas y transporte MOCK sandbox/production | Contrato fiscal | PENDIENTE |
 | P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | PENDIENTE |
@@ -108,6 +108,10 @@ Migración aditiva e idempotente para documentos fiscales externos, impuestos DR
 ## Resultado P06 — 2026-09-29
 
 Renderer de proposals reconciliado con `ProposalTotalsService`, placeholders legacy/fiscales, tabla fiscal sin resumen duplicado, selección nullable de plantilla y validación de conversión Proposal→Sale. [Alcance y límites](P06_PROPOSALS.md). Validación: 13 aserciones P06, 16 P05, 27 PDF binario y 9 de conversión fiscal aprobadas, sin PAC. El runner PDF usa una caché TCPDF efímera bajo `writable/`; el runner fiscal crea y elimina un esquema MySQL sintético. P01 sigue sin desplegarse individualmente. Cierre de validación: `test: close proposal canonical validation`; implementación: `reconcile: proposals templates and conversion`.
+
+## Resultado P07 — 2026-09-29
+
+Captura manual protegida desde Suppliers y comparador que incluye origen manual/formal sin escrituras comerciales. El historial manual queda append-only: no hay edición/borrado sin contrato de auditoría y schema específico. [Alcance y límites](P07_SUPPLIERS.md). Validación: 18 aserciones SQLite P07, 47 SQLite y 57 MySQL temporal P03, y 8 de vistas; sin PAC ni datos fuente. Requiere desplegar P03 individualmente y cerrar gates P02.
 
 ## Bitácora
 

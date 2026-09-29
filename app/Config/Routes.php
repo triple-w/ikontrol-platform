@@ -86,6 +86,9 @@ $routes->post('suppliers/modal_form', 'Suppliers::modal_form', ['filter'=>'csrf'
 $routes->post('suppliers/save', 'Suppliers::save', ['filter'=>'csrf']);
 $routes->get('suppliers/view/(:num)', 'Suppliers::view/$1');
 $routes->post('suppliers/toggle_status', 'Suppliers::toggle_status', ['filter'=>'csrf']);
+$routes->post('suppliers/(:num)/manual-cost/modal-form', 'Suppliers::manual_cost_modal_form/$1', ['filter'=>'csrf']);
+$routes->post('suppliers/manual-cost/save', 'Suppliers::save_manual_cost', ['filter'=>'csrf']);
+$routes->post('suppliers/products/(:num)/cost-comparison', 'Suppliers::product_cost_comparison/$1', ['filter'=>'csrf']);
 $routes->post('proposals/products/(:num)/supplier-comparison', 'Proposals::supplier_comparison/$1', ['filter'=>'csrf']);
 $routes->post('proposals/products/(:num)/suppliers/(:num)/cost-reference', 'Proposals::supplier_cost_reference/$1/$2', ['filter'=>'csrf']);
 $routes->post('proposals/items/(:num)/supplier-quotes/save', 'Proposals::save_supplier_quote/$1', ['filter'=>'csrf']);

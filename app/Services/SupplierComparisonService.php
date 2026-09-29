@@ -8,7 +8,7 @@ use CodeIgniter\Database\BaseConnection;
 
 final class SupplierComparisonService
 {
-    private const VALID_STATUSES = ['sent', 'accepted', 'declined', 'not_paid', 'partially_paid', 'paid', 'open', 'closed'];
+    private const VALID_STATUSES = ['manual', 'sent', 'accepted', 'declined', 'not_paid', 'partially_paid', 'paid', 'open', 'closed'];
 
     public function __construct(private ?BaseConnection $db = null)
     {
@@ -18,9 +18,9 @@ final class SupplierComparisonService
     public function compare(int $productId): array
     {
         $history = $this->db->table('product_supplier_cost_history h')
-            ->select('h.id,h.product_id,h.supplier_id,h.source_type,h.source_id,h.source_item_id,h.source_folio,h.proposal_id,h.proposal_item_id,h.client_id,h.unit_cost,h.sale_unit_price,h.quantity,h.currency,h.quoted_at,h.source_status,s.name supplier_name,s.rfc supplier_rfc,s.status supplier_status,s.deleted supplier_deleted,c.company_name')
+            ->select('h.id,h.product_id,h.supplier_id,h.source_type,h.source_id,h.source_item_id,h.source_folio,h.proposal_id,h.proposal_item_id,h.client_id,h.unit_cost,h.sale_unit_price,h.quantity,h.currency,h.quoted_at,h.notes,h.source_status,s.name supplier_name,s.rfc supplier_rfc,s.status supplier_status,s.deleted supplier_deleted,c.company_name')
             ->join('suppliers s', 's.id=h.supplier_id')
-            ->join('clients c', 'c.id=h.client_id')
+            ->join('clients c', 'c.id=h.client_id', 'left')
             ->where('h.product_id', $productId)
             ->whereIn('h.source_status', self::VALID_STATUSES)
             ->where('h.unit_cost IS NOT NULL', null, false)
@@ -59,6 +59,7 @@ final class SupplierComparisonService
                 'client_id' => (int) $row['client_id'], 'client_name' => $row['company_name'],
                 'sale_unit_price' => $this->decimal($row['sale_unit_price']),
                 'quantity' => $this->decimal($row['quantity']),
+                'notes' => $row['notes'],
             ];
             if ($generalBest === null || bccomp((string) $row['unit_cost'], $generalBest, 6) < 0) {
                 $generalBest = $this->decimal($row['unit_cost']);
