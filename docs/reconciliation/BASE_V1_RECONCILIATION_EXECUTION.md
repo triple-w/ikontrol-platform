@@ -66,7 +66,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P09 | Ambiente fiscal único, separado de CI_ENVIRONMENT; guardas y transporte MOCK sandbox/production | Contrato fiscal | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; production sólo con configuración completa y guard explícito. [Decisión P09](P09_FISCAL_ENVIRONMENT.md) |
 | P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; migración aditiva pendiente de aplicación dirigida. [Decisión P10](P10_STAMPING_LIFECYCLE.md) |
 | P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere aplicación dirigida P04/P10. [Decisión P11](P11_PAYMENT_COMPLEMENTS.md) |
-| P12 | I/P/E: serie/folio congelados; PDF/logo/históricos desde documento persistido | P09–P11 | PENDIENTE |
+| P12 | I/P/E: serie/folio congelados; PDF/logo/históricos desde documento persistido | P09–P11 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; sin migración nueva. [Decisión P12](P12_FISCAL_SERIES_PDF.md) |
 | P13 | Rutas explícitas/catch-all, verbos, CSRF, permisos y regresión transversal | Cada módulo | PENDIENTE |
 | P14 | Limpieza EOL/docs/env example/arquitectura en cambio separado; sólo obsolescencia demostrada | Pruebas críticas aprobadas | PENDIENTE |
 | P15 | Fuente canónica de versión, docs/releases/1.0.0.md, commit y tag v1.0.0 en este repositorio | Todos los anteriores | BLOQUEADO POR PAQUETES PENDIENTES |
@@ -128,6 +128,10 @@ El lifecycle distingue no-envío probado, respuesta definitiva y resultado incie
 ## Resultado P11 — 2026-09-30
 
 Un normalizador común alimenta snapshot y XML Pagos 2.0 para complementos internos, externos y mixtos. Los externos permanecen exclusivamente fiscales, los snapshots quedan congelados con verificación de integridad y el timbrado usa el lifecycle P10 y el ambiente P09. [Contrato y evidencia](P11_PAYMENT_COMPLEMENTS.md). Validación: 28 aserciones P11 sobre MySQL temporal con P04/P10 dirigidas, 28 de regresión P04 MySQL, 16 P09 y 26 P10; cero PAC real. El schema temporal fue eliminado y no se aplicaron migraciones a fuentes. P12 queda habilitado para PDF/serie/folio persistidos; P13 conserva la auditoría transversal de permisos y rutas.
+
+## Resultado P12 — 2026-09-30
+
+Ingreso, pago y egreso congelan serie/folio en `fiscal_documents`; XML y PDF consumen evidencia persistida. Pago materializa su Pre-XML final después de reservar la identidad, egreso asigna bajo transacción efectiva y el PDF valida tipo, serie, folio y UUID contra XML timbrado/documento. El logo vigente queda limitado a presentación. [Contrato y evidencia](P12_FISCAL_SERIES_PDF.md). Validación: 32 aserciones P12 MySQL, 28 P11, 15 de regeneración PDF, 16 P09 y 26 P10; fake/MOCK, cero PAC real. P13 conserva la auditoría transversal de rutas y permisos.
 
 ## Bitácora
 

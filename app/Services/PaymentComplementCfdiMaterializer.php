@@ -14,7 +14,7 @@ final class PaymentComplementCfdiMaterializer
     {
         $dom=new DOMDocument('1.0','UTF-8');$dom->formatOutput=true;
         $root=$dom->createElementNS('http://www.sat.gob.mx/cfd/4','cfdi:Comprobante');$dom->appendChild($root);
-        foreach(['Version'=>'4.0','Fecha'=>$snapshot['issue_date'],'SubTotal'=>'0','Moneda'=>'XXX','Total'=>'0','TipoDeComprobante'=>'P','Exportacion'=>'01','LugarExpedicion'=>$snapshot['issuer']['expedition_postal_code']??''] as$key=>$value)$root->setAttribute($key,(string)$value);
+        foreach(['Version'=>'4.0','Serie'=>$snapshot['series']??null,'Folio'=>$snapshot['folio']??null,'Fecha'=>$snapshot['issue_date'],'SubTotal'=>'0','Moneda'=>'XXX','Total'=>'0','TipoDeComprobante'=>'P','Exportacion'=>'01','LugarExpedicion'=>$snapshot['issuer']['expedition_postal_code']??''] as$key=>$value)if($value!==null&&$value!=='')$root->setAttribute($key,(string)$value);
         $root->setAttributeNS('http://www.w3.org/2000/xmlns/','xmlns:pago20','http://www.sat.gob.mx/Pagos20');
         $root->setAttributeNS('http://www.w3.org/2000/xmlns/','xmlns:xsi','http://www.w3.org/2001/XMLSchema-instance');
         $root->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance','xsi:schemaLocation','http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd http://www.sat.gob.mx/Pagos20 http://www.sat.gob.mx/sitio_internet/cfd/Pagos/Pagos20.xsd');
