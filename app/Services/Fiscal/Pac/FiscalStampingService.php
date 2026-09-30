@@ -45,7 +45,9 @@ final class FiscalStampingService
         $factory = $this->adapterFactory ?? new FiscalPacAdapterFactory();
         $adapter = $factory->create();
         $provider = $factory->provider();
-        $environment = $factory->environment();
+        $runtimeContext = $factory->context();
+        $environment = (string) $runtimeContext['transport_environment'];
+        $endpoint = isset($runtimeContext['pac_endpoint']) ? (string) $runtimeContext['pac_endpoint'] : null;
         $providerConfig = $this->configuration ?? config('TimbradorXpress');
         $operation = $provider === 'timbradorxpress' ? 'timbrarConSello' : 'timbrar3';
 
@@ -55,7 +57,7 @@ final class FiscalStampingService
         }
 
         [$document, $artifact, $attempt, $xml, $existing] =
-            $this->prepare($documentId, $userId, $provider, $environment, $operation);
+            $this->prepare($documentId, $userId, $provider, $environment, $operation, $endpoint);
 
         if ($existing) {
             return new FiscalStampingResult(
@@ -118,14 +120,21 @@ final class FiscalStampingService
                 (string) $attempt->idempotency_key,
                 $keyPem
             ));
-        } catch (\Throwable $preTransportError) {
-            $this->finishNotSent(
-                (int)$attempt->id,$documentId,
-                'El adaptador rechazó la solicitud antes del transporte.',
+        } catch (\Throwable $transportError) {
+            // Invoking the adapter opened the uncertainty window. Only an
+            // explicit adapter response may prove that transport was not sent.
+            $this->finishUnknown(
+                (int)$attempt->id,
+                $documentId,
+                'transport_unknown',
+                $transportError->getMessage(),
                 (int)round((microtime(true)-$started)*1000)
             );
-            $this->releaseCommercialReservation((int)$attempt->id,$userId,'PAC adapter failed before request transport.');
-            throw $preTransportError;
+            return new FiscalStampingResult(
+                false, 'unknown', $documentId, (int)$attempt->id,
+                'transport', null, 'No fue posible confirmar si el PAC recibió la solicitud.',
+                null, null, false, true, 'Conciliar el intento antes de cualquier reenvío.'
+            );
         }
         unset($keyPem);
         $duration = (int) round((microtime(true) - $started) * 1000);
@@ -375,7 +384,8 @@ final class FiscalStampingService
         int $userId,
         string $provider,
         string $environment,
-        string $operation
+        string $operation,
+        ?string $endpoint
     ): array {
         $this->db->transBegin();
         try {
@@ -430,18 +440,12 @@ final class FiscalStampingService
             $existing = $this->db->table('fiscal_stamp_attempts')
                 ->where('idempotency_key', $key)->get(1)->getRow();
             if ($existing) {
-                if ((int)($existing->retryable ?? 0) !== 1
-                    || !in_array((string)$existing->status, ['transport_not_sent','provider_rejected','rejected','insufficient_balance'], true)) {
-                    $this->db->transCommit();
-                    return [$document, $artifact, $existing, $xml, true];
-                }
-                $attemptNumber=(int)$this->db->table('fiscal_stamp_attempts')
-                    ->where('fiscal_document_id',$documentId)->selectMax('attempt_number','number')
-                    ->get()->getRow('number')+1;
-                $key=hash('sha256',$key.'|manual-retry|'.$attemptNumber);
-            } else {
-                $attemptNumber=1;
+                $this->db->transCommit();
+                return [$document, $artifact, $existing, $xml, true];
             }
+            $attemptNumber=(int)$this->db->table('fiscal_stamp_attempts')
+                ->where('fiscal_document_id',$documentId)->selectMax('attempt_number','number')
+                ->get()->getRow('number')+1;
 
             if ($document->status === 'stamped'
                 || $this->db->table('fiscal_document_stamps')
@@ -462,6 +466,7 @@ final class FiscalStampingService
                 'provider' => $provider,
                 'environment' => $environment,
                 'operation' => $operation,
+                'pac_endpoint' => $endpoint,
                 'request_hash' => $artifact->sha256,
                 'idempotency_key' => $key,
                 'attempt_number' => $attemptNumber,
@@ -512,7 +517,13 @@ final class FiscalStampingService
         try {
             $updated = $this->db->table('fiscal_stamp_attempts')
                 ->where(['id' => $attemptId, 'fiscal_document_id' => $documentId, 'status' => 'pending'])
-                ->update(['status' => 'sending', 'sent_at' => $now, 'updated_at' => $now]);
+                ->update([
+                    'status' => 'sending',
+                    'sent_at' => $now,
+                    'transport_opened_at' => $now,
+                    'request_sent' => null,
+                    'updated_at' => $now,
+                ]);
             if (!$updated || $this->db->affectedRows() !== 1 || !$this->db->transStatus()) {
                 throw new RuntimeException('No fue posible confirmar el intento antes del envío.');
             }
@@ -662,7 +673,9 @@ final class FiscalStampingService
             'category' => $error->category,
         ]);
         $this->db->transComplete();
-        $this->releaseCommercialReservation((int)$attempt->id,$userId,'PAC definitively rejected the CFDI.');
+        if (!$error->requiresReconciliation) {
+            $this->releaseCommercialReservation((int)$attempt->id,$userId,'PAC definitively rejected the CFDI.');
+        }
 
         return new FiscalStampingResult(
             false, 'rejected', $documentId, (int) $attempt->id,
@@ -718,6 +731,8 @@ final class FiscalStampingService
             'requires_reconciliation' => 0,
             'retryable' => 1,
             'duration_ms' => $duration,
+            'request_sent' => 0,
+            'request_sent_confirmed_at' => get_current_utc_time(),
             'updated_at' => get_current_utc_time(),
         ]);
         $this->db->table('fiscal_documents')->where('id', $documentId)->update([
@@ -730,6 +745,10 @@ final class FiscalStampingService
     private function persistResponseForensics(int $attemptId, object $response): void
     {
         $metadata=$response->metadata??[];
+        $sent=array_key_exists('request_sent',$metadata)
+            ? ($metadata['request_sent']===true ? 1 : ($metadata['request_sent']===false ? 0 : null))
+            : ($response->transportError ? null : 1);
+        $now=get_current_utc_time();
         $row=[
             'response_content_type'=>$metadata['response_content_type']??null,
             'response_body_length'=>$metadata['response_body_length']??null,
@@ -738,6 +757,9 @@ final class FiscalStampingService
             'response_error_class'=>$metadata['response_error_class']??null,
             'response_error_message'=>$metadata['response_error_message']??null,
             'response_structure'=>isset($metadata['response_structure'])?json_encode($metadata['response_structure'],JSON_UNESCAPED_SLASHES):json_encode(['keys'=>$metadata['response_keys']??[],'has_data'=>$metadata['has_data']??false],JSON_UNESCAPED_SLASHES),
+            'request_sent'=>$sent,
+            'request_sent_confirmed_at'=>$sent===null?null:$now,
+            'response_received_at'=>$now,
         ];
         if(!empty($metadata['forensic_path']))$row['contingency_path']=$metadata['forensic_path'];
         $this->db->table('fiscal_stamp_attempts')->where('id',$attemptId)->update($row);

@@ -46,9 +46,15 @@ final class FiscalPacAdapterFactory
 
     public function environment(): string
     {
+        return $this->context()['transport_environment'];
+    }
+
+    /** @return array<string,mixed> */
+    public function context(): array
+    {
         $fiscal = $this->fiscal ?? config('Fiscal');
         $pac = $this->timbradorXpress ?? config('TimbradorXpress');
-        return FiscalRuntimeContext::from($fiscal, $pac)['transport_environment'];
+        return FiscalRuntimeContext::from($fiscal, $pac);
     }
 
     private function createTimbradorXpress(Fiscal $fiscal): PacAdapterInterface

@@ -64,7 +64,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P07 | Suppliers: manuales/formales, comparación, permisos, concurrencia e idempotencia; sin documentos ficticios | P03, P05 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere despliegue individual P03 y gates de datos P02. [Decisión P07](P07_SUPPLIERS.md) |
 | P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | VALIDADO; NO DESPLEGADO; schema P02 completo, sin migración ni cambio funcional nuevo. [Decisión P08](P08_WAREHOUSES.md) |
 | P09 | Ambiente fiscal único, separado de CI_ENVIRONMENT; guardas y transporte MOCK sandbox/production | Contrato fiscal | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; production sólo con configuración completa y guard explícito. [Decisión P09](P09_FISCAL_ENVIRONMENT.md) |
-| P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | PENDIENTE |
+| P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; migración aditiva pendiente de aplicación dirigida. [Decisión P10](P10_STAMPING_LIFECYCLE.md) |
 | P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | PENDIENTE |
 | P12 | I/P/E: serie/folio congelados; PDF/logo/históricos desde documento persistido | P09–P11 | PENDIENTE |
 | P13 | Rutas explícitas/catch-all, verbos, CSRF, permisos y regresión transversal | Cada módulo | PENDIENTE |
@@ -120,6 +120,10 @@ Base conserva movimientos confirmados, transferencias parciales/con diferencia y
 ## Resultado P09 — 2026-09-29
 
 `FiscalRuntimeContext` es la autoridad operativa para ambiente lógico, transporte, endpoint, credencial disponible y guards. `fiscal.environment` queda separado del runtime de la app; factory, preflight, timbrado, cancelación, diagnóstico, créditos PAC y wallet consumen el mismo contrato. [Alcance y evidencia](P09_FISCAL_ENVIRONMENT.md). Validación: 16 aserciones P09, 16 P05, 8 de factory y 25 del incremento fiscal; sandbox y production se ejercitaron sólo con cliente HTTP MOCK y no hubo PAC real. P10 conserva lifecycle de retries/unknown/locks/wallet.
+
+## Resultado P10 — 2026-09-30
+
+El lifecycle distingue no-envío probado, respuesta definitiva y resultado incierto. Sólo `transport_not_sent` con evidencia completa permite invalidar explícitamente el prepared document; cualquier posible envío bloquea retry y pasa por `FiscalStampReconciliationService`. Locks por intento y guardas de wallet evitan doble retry, doble conciliación y release/consume fuera de estado. [Contrato y evidencia](P10_STAMPING_LIFECYCLE.md). Validación: 26 aserciones P10, 11 de lifecycle preparado, 16 de ambiente fiscal y 25 de regresión del pipeline; todo con fake/MOCK y cero HTTP PAC. La migración aditiva de evidencia de transporte no fue aplicada a las bases fuente. P11 queda desbloqueado a nivel de contrato, sujeto a aplicar P04/P10 en un schema temporal canónico.
 
 ## Bitácora
 

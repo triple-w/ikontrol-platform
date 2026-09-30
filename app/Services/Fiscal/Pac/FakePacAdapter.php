@@ -57,6 +57,7 @@ final class FakePacAdapter implements PacAdapterInterface
                 true,
                 false
             ),
+            'throw_after_transport_open' => throw new RuntimeException('Fallo simulado despues de abrir transporte.'),
             'persistence_error' => $this->success($request, ['force_persistence_error' => true], $this->pdfBase64 ?? self::fixturePdf()),
             default => throw new RuntimeException('Escenario de PAC falso no soportado.'),
         };
@@ -66,15 +67,18 @@ final class FakePacAdapter implements PacAdapterInterface
     {
         $this->statusCalls++;
 
-        return new PacResponse(
-            null,
-            'La consulta externa está deshabilitada en el PAC falso.',
-            null,
-            0,
-            ['adapter' => 'fake', 'request_sent' => false],
-            true,
-            false
-        );
+        return match ($this->scenario) {
+            'reconcile_stamped' => new PacResponse('200', 'Timbrado encontrado por conciliacion.', json_encode([
+                'XML' => $this->stampedXml,
+                'UUID' => '123E4567-E89B-42D3-A456-426614174000',
+                'FechaTimbrado' => '2026-07-24T12:00:00',
+                'CadenaOriginal' => '', 'CadenaOriginalSAT' => '', 'CodigoQR' => '',
+            ]), 200, ['adapter' => 'fake', 'reconciliation_outcome' => 'stamped']),
+            'reconcile_not_found' => new PacResponse('404', 'No encontrado de forma definitiva.', null, 200, ['adapter' => 'fake', 'reconciliation_outcome' => 'not_found_definitive']),
+            'reconcile_indeterminate' => new PacResponse(null, 'El estado sigue indeterminado.', null, 200, ['adapter' => 'fake', 'reconciliation_outcome' => 'indeterminate']),
+            'reconcile_error' => new PacResponse(null, 'Fallo controlado de conciliacion.', null, 0, ['adapter' => 'fake', 'reconciliation_outcome' => 'error'], true, false),
+            default => new PacResponse(null, 'Consulta fake sin resultado definitivo.', null, 0, ['adapter' => 'fake', 'reconciliation_outcome' => 'indeterminate'], true, false),
+        };
     }
 
     private function success(StampRequest $request, array $metadata = [], ?string $pdfBase64 = null): PacResponse

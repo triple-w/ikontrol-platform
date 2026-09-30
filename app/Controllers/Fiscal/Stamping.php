@@ -251,7 +251,7 @@ final class Stamping extends Security_Controller
     {
         $this->guard('fiscal_stamp_reconcile');
         try {
-            $result = (new FiscalStampReconciliationService())->recoverFromContingency(
+            $result = (new FiscalStampReconciliationService())->reconcile(
                 (int) $this->request->getPost('attempt_id'),
                 (int) $this->login_user->id,
                 true
@@ -259,8 +259,8 @@ final class Stamping extends Security_Controller
             echo json_encode([
                 'success' => true,
                 'data' => [
-                    'attempt_id' => $result['attempt']->id,
-                    'sha256' => $result['sha256'],
+                    'attempt_id' => $result['attempt_id'],
+                    'outcome' => $result['outcome'],
                     'automatic_resend' => false,
                 ],
                 'message' => app_lang('reconciliation'),
