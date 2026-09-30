@@ -48,6 +48,10 @@ final class PaymentComplementExternalDocumentService
             $external = $this->db->table(self::DOCUMENTS)->where(['payment_complement_id' => $complementId, 'uuid' => $data['uuid'], 'deleted' => 0]);
             if ($id > 0) $external->where('id !=', $id);
             if ($external->countAllResults()) throw new InvalidArgumentException('El UUID ya está relacionado en este complemento.');
+            $projected = $this->projectedPaymentAmount((int)$context->payment_id, $id, $data, (string)$context->currency_code);
+            if (FiscalDecimal::micros($projected) > FiscalDecimal::micros((string)$context->payment_amount)) {
+                throw new InvalidArgumentException('Los documentos relacionados exceden el pago administrativo real.');
+            }
             $taxes = $data['taxes']; unset($data['taxes']);
             $now = gmdate('Y-m-d H:i:s');
             if ($id > 0) {
@@ -62,6 +66,7 @@ final class PaymentComplementExternalDocumentService
                 $id = (int) $this->db->insertID();
             }
             foreach ($taxes as $tax) $this->db->table(self::TAXES)->insert($tax + ['external_document_id' => $id]);
+            $this->syncTotals($complementId, (int)$context->payment_id, $projected);
             if (! $this->db->transStatus()) throw new RuntimeException('No fue posible guardar el CFDI externo.');
             $this->db->transCommit();
             return $id;
@@ -82,6 +87,7 @@ final class PaymentComplementExternalDocumentService
             $change = ['deleted' => 1, 'updated_at' => gmdate('Y-m-d H:i:s')];
             if ($this->db->DBDriver !== 'MySQLi') $change['active_uuid'] = null;
             $this->db->table(self::DOCUMENTS)->where('id', $id)->update($change);
+            $this->syncTotals($complementId, (int)$this->editableContext($complementId)->payment_id);
             if (! $this->db->transStatus()) throw new RuntimeException('No fue posible retirar el CFDI externo.');
             $this->db->transCommit();
         } catch (Throwable $e) {
@@ -127,12 +133,45 @@ final class PaymentComplementExternalDocumentService
     private function editableContext(int $complementId): object
     {
         $suffix = $this->db->DBDriver === 'MySQLi' ? ' FOR UPDATE' : '';
-        $row = $this->db->query('SELECT c.id,c.status,p.id payment_id,p.currency_code FROM '
+        $row = $this->db->query('SELECT c.*,p.id payment_id,p.currency_code,ip.amount payment_amount FROM '
             . $this->db->escapeIdentifiers($this->db->prefixTable('payment_complements')) . ' c JOIN '
             . $this->db->escapeIdentifiers($this->db->prefixTable('payment_complement_payments'))
-            . ' p ON p.payment_complement_id=c.id AND p.deleted=0 WHERE c.id=? AND c.deleted=0' . $suffix, [$complementId])->getRow();
+            . ' p ON p.payment_complement_id=c.id AND p.deleted=0 JOIN '
+            . $this->db->escapeIdentifiers($this->db->prefixTable('invoice_payments'))
+            . ' ip ON ip.id=p.source_invoice_payment_id WHERE c.id=? AND c.deleted=0' . $suffix, [$complementId])->getRow();
         if (! $row || ! in_array($row->status, ['draft', 'complete_draft'], true)) throw new RuntimeException('El complemento no es un borrador editable.');
+        if ((int)($row->fiscal_document_id ?? 0) > 0 || ($this->db->tableExists('payment_complement_fiscal_snapshots') && $this->db->table('payment_complement_fiscal_snapshots')->where('payment_complement_id',$complementId)->countAllResults())) {
+            throw new RuntimeException('El snapshot fiscal ya fue congelado; el documento externo es inmutable.');
+        }
         return $row;
+    }
+
+    private function projectedPaymentAmount(int $paymentId, int $editingId, array $candidate, string $paymentCurrency): string
+    {
+        $internal = $this->db->table('payment_complement_documents')->selectSum('amount_paid','total')->where(['payment_complement_payment_id'=>$paymentId,'deleted'=>0])->get()->getRow();
+        $total = FiscalDecimal::format(FiscalDecimal::micros((string)($internal->total ?? '0')));
+        $rows = $this->db->table(self::DOCUMENTS)->where(['payment_complement_payment_id'=>$paymentId,'deleted'=>0]);
+        if ($editingId > 0) $rows->where('id !=',$editingId);
+        foreach ($rows->get()->getResult() as $row) $total = FiscalDecimal::add($total, $this->paymentValue((string)$row->paid_amount,(string)$row->currency_code,(string)$row->equivalence_dr,$paymentCurrency));
+        return FiscalDecimal::add($total, $this->paymentValue($candidate['paid_amount'],$candidate['currency_code'],$candidate['equivalence_dr'],$paymentCurrency));
+    }
+
+    private function paymentValue(string $paid, string $documentCurrency, string $equivalence, string $paymentCurrency): string
+    {
+        return PaymentComplementAmountConverter::toPaymentCurrency($paid, $documentCurrency, $equivalence, $paymentCurrency);
+    }
+
+    private function syncTotals(int $complementId, int $paymentId, ?string $knownTotal = null): void
+    {
+        if ($knownTotal === null) {
+            $internal=$this->db->table('payment_complement_documents')->selectSum('amount_paid','total')->where(['payment_complement_payment_id'=>$paymentId,'deleted'=>0])->get()->getRow();
+            $total=FiscalDecimal::format(FiscalDecimal::micros((string)($internal->total??'0')));
+            $payment=$this->db->table('payment_complement_payments')->where('id',$paymentId)->get(1)->getRow();
+            foreach($this->db->table(self::DOCUMENTS)->where(['payment_complement_payment_id'=>$paymentId,'deleted'=>0])->get()->getResult()as$row)$total=FiscalDecimal::add($total,$this->paymentValue((string)$row->paid_amount,(string)$row->currency_code,(string)$row->equivalence_dr,(string)$payment->currency_code));
+        } else $total=$knownTotal;
+        $now=gmdate('Y-m-d H:i:s');
+        $this->db->table('payment_complement_payments')->where('id',$paymentId)->update(['amount'=>$total,'updated_at'=>$now]);
+        $this->db->table('payment_complements')->where('id',$complementId)->update(['status'=>FiscalDecimal::micros($total)>0?'complete_draft':'draft','updated_at'=>$now]);
     }
 
     private function taxes(mixed $input, string $object): array

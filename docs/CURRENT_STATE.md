@@ -8,7 +8,7 @@ Revisión: 2026-09-29. Rama canónica: `main`. iKontrol 1.0.0 aún no está libe
 
 El trabajo exclusivo de Base quedó preservado desde el checkpoint `e044301`. La conciliación implementó y validó de forma aislada schema aditivo, proposals, costos manuales de proveedor, documentos externos de complementos y ambiente fiscal; Warehouses quedó validado sin cambio funcional. Ninguna migración canónica nueva se ha aplicado a las BD de Base o Navika.
 
-El [registro de ejecución](reconciliation/BASE_V1_RECONCILIATION_EXECUTION.md) es la checklist detallada. P01–P10 cuentan con decisiones y evidencia; sus migraciones siguen sin aplicarse a las bases fuente. P09 centralizó el ambiente fiscal en `FiscalRuntimeContext`. P10 cerró el lifecycle seguro: no-envío probado permite invalidación explícita, un posible envío exige conciliación, y wallet conserva reservas inciertas. Sandbox y production se validaron sólo con transporte MOCK y configuración fail-closed. El siguiente paquete es P11.
+El [registro de ejecución](reconciliation/BASE_V1_RECONCILIATION_EXECUTION.md) es la checklist detallada. P01–P11 cuentan con decisiones y evidencia; sus migraciones siguen sin aplicarse a las bases fuente. P09 centralizó el ambiente fiscal en `FiscalRuntimeContext`. P10 cerró el lifecycle seguro: no-envío probado permite invalidación explícita, un posible envío exige conciliación, y wallet conserva reservas inciertas. P11 unificó complementos internos, externos y mixtos mediante un documento normalizado y snapshot congelado. Sandbox y production se validaron sólo con transporte MOCK y configuración fail-closed. El siguiente paquete es P12.
 
 No se han aplicado migraciones sobre Base/Navika ni se ha ejecutado PAC real durante la conciliación.
 

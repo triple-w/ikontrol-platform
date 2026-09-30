@@ -16,7 +16,10 @@ final class PaymentComplementPreflightService
 
     public function inspect(int $id): array
     {
-        $review = (new PaymentComplementReadinessService($this->db))->check($id);
+        $hasFrozen = $this->db->table('payment_complement_fiscal_snapshots')->where('payment_complement_id',$id)->countAllResults() > 0;
+        $review = $hasFrozen
+            ? ['ready'=>true,'status'=>'frozen','checks'=>[],'blockers'=>[],'warnings'=>[]]
+            : (new PaymentComplementReadinessService($this->db))->check($id);
         $errors = $review['blockers'];
         $snapshot = null;
         $xsd = null;

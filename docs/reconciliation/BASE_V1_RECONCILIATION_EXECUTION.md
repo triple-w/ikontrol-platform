@@ -65,7 +65,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P08 | Warehouses: preservar Base; probar catálogo, ledger, transferencias, parciales, diferencias y etiquetas | P02 | VALIDADO; NO DESPLEGADO; schema P02 completo, sin migración ni cambio funcional nuevo. [Decisión P08](P08_WAREHOUSES.md) |
 | P09 | Ambiente fiscal único, separado de CI_ENVIRONMENT; guardas y transporte MOCK sandbox/production | Contrato fiscal | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; production sólo con configuración completa y guard explícito. [Decisión P09](P09_FISCAL_ENVIRONMENT.md) |
 | P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; migración aditiva pendiente de aplicación dirigida. [Decisión P10](P10_STAMPING_LIFECYCLE.md) |
-| P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | PENDIENTE |
+| P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere aplicación dirigida P04/P10. [Decisión P11](P11_PAYMENT_COMPLEMENTS.md) |
 | P12 | I/P/E: serie/folio congelados; PDF/logo/históricos desde documento persistido | P09–P11 | PENDIENTE |
 | P13 | Rutas explícitas/catch-all, verbos, CSRF, permisos y regresión transversal | Cada módulo | PENDIENTE |
 | P14 | Limpieza EOL/docs/env example/arquitectura en cambio separado; sólo obsolescencia demostrada | Pruebas críticas aprobadas | PENDIENTE |
@@ -124,6 +124,10 @@ Base conserva movimientos confirmados, transferencias parciales/con diferencia y
 ## Resultado P10 — 2026-09-30
 
 El lifecycle distingue no-envío probado, respuesta definitiva y resultado incierto. Sólo `transport_not_sent` con evidencia completa permite invalidar explícitamente el prepared document; cualquier posible envío bloquea retry y pasa por `FiscalStampReconciliationService`. Locks por intento y guardas de wallet evitan doble retry, doble conciliación y release/consume fuera de estado. [Contrato y evidencia](P10_STAMPING_LIFECYCLE.md). Validación: 26 aserciones P10, 11 de lifecycle preparado, 16 de ambiente fiscal y 25 de regresión del pipeline; todo con fake/MOCK y cero HTTP PAC. La migración aditiva de evidencia de transporte no fue aplicada a las bases fuente. P11 queda desbloqueado a nivel de contrato, sujeto a aplicar P04/P10 en un schema temporal canónico.
+
+## Resultado P11 — 2026-09-30
+
+Un normalizador común alimenta snapshot y XML Pagos 2.0 para complementos internos, externos y mixtos. Los externos permanecen exclusivamente fiscales, los snapshots quedan congelados con verificación de integridad y el timbrado usa el lifecycle P10 y el ambiente P09. [Contrato y evidencia](P11_PAYMENT_COMPLEMENTS.md). Validación: 28 aserciones P11 sobre MySQL temporal con P04/P10 dirigidas, 28 de regresión P04 MySQL, 16 P09 y 26 P10; cero PAC real. El schema temporal fue eliminado y no se aplicaron migraciones a fuentes. P12 queda habilitado para PDF/serie/folio persistidos; P13 conserva la auditoría transversal de permisos y rutas.
 
 ## Bitácora
 

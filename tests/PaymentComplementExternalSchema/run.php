@@ -43,13 +43,13 @@ try {
     };
     $id = ['type'=>'INT','unsigned'=>true,'auto_increment'=>true]; $int = ['type'=>'INT','unsigned'=>true]; $nullableInt = ['type'=>'INT','unsigned'=>true,'null'=>true];
     $make('invoices', ['id'=>$id,'sentinel'=>['type'=>'VARCHAR','constraint'=>20]]);
-    $make('invoice_payments', ['id'=>$id,'sentinel'=>['type'=>'VARCHAR','constraint'=>20]]);
+    $make('invoice_payments', ['id'=>$id,'amount'=>['type'=>'DECIMAL','constraint'=>'18,6'],'status'=>['type'=>'VARCHAR','constraint'=>20],'deleted'=>['type'=>'INT','default'=>0],'sentinel'=>['type'=>'VARCHAR','constraint'=>20]]);
     $make('payment_allocations', ['id'=>$id,'sentinel'=>['type'=>'VARCHAR','constraint'=>20]]);
     $make('financial_account_movements', ['id'=>$id,'sentinel'=>['type'=>'VARCHAR','constraint'=>20]]);
     $make('sat_currencies', ['id'=>$id,'code'=>['type'=>'CHAR','constraint'=>3],'is_active'=>['type'=>'INT','default'=>1]], ['code'=>'uq_currency']);
-    $make('payment_complements', ['id'=>$id,'status'=>['type'=>'VARCHAR','constraint'=>20],'deleted'=>['type'=>'INT','default'=>0]]);
-    $make('payment_complement_payments', ['id'=>$id,'payment_complement_id'=>$int,'currency_code'=>['type'=>'CHAR','constraint'=>3],'deleted'=>['type'=>'INT','default'=>0]]);
-    $make('payment_complement_documents', ['id'=>$id,'payment_complement_payment_id'=>$int,'document_uuid'=>['type'=>'CHAR','constraint'=>36],'deleted'=>['type'=>'INT','default'=>0]]);
+    $make('payment_complements', ['id'=>$id,'status'=>['type'=>'VARCHAR','constraint'=>20],'fiscal_document_id'=>$nullableInt,'updated_at'=>['type'=>'DATETIME','null'=>true],'deleted'=>['type'=>'INT','default'=>0]]);
+    $make('payment_complement_payments', ['id'=>$id,'payment_complement_id'=>$int,'source_invoice_payment_id'=>$int,'currency_code'=>['type'=>'CHAR','constraint'=>3],'amount'=>['type'=>'DECIMAL','constraint'=>'18,6'],'updated_at'=>['type'=>'DATETIME','null'=>true],'deleted'=>['type'=>'INT','default'=>0]]);
+    $make('payment_complement_documents', ['id'=>$id,'payment_complement_payment_id'=>$int,'document_uuid'=>['type'=>'CHAR','constraint'=>36],'amount_paid'=>['type'=>'DECIMAL','constraint'=>'18,6','default'=>'0.000000'],'deleted'=>['type'=>'INT','default'=>0]]);
     $make('fiscal_documents', ['id'=>$id,'invoice_id'=>['type'=>'INT','unsigned'=>true],'sentinel'=>['type'=>'VARCHAR','constraint'=>20]]);
     if (! $mysql) {
         $make('payment_complement_external_documents', ['id'=>$id,'payment_complement_id'=>$int,'payment_complement_payment_id'=>$int,
@@ -65,11 +65,12 @@ try {
             'rate_or_quota'=>['type'=>'DECIMAL','constraint'=>'18,6','null'=>true],'amount'=>['type'=>'DECIMAL','constraint'=>'18,6','null'=>true]]);
     }
     foreach (['MXN', 'USD', 'EUR'] as $currency) $db->table('sat_currencies')->insert(['code'=>$currency,'is_active'=>1]);
-    foreach (['invoices','invoice_payments','payment_allocations','financial_account_movements'] as $table) $db->table($table)->insert(['id'=>1,'sentinel'=>'preserve']);
+    foreach (['invoices','payment_allocations','financial_account_movements'] as $table) $db->table($table)->insert(['id'=>1,'sentinel'=>'preserve']);
+    $db->table('invoice_payments')->insert(['id'=>1,'amount'=>'1000','status'=>'active','deleted'=>0,'sentinel'=>'preserve']);
     $db->table('fiscal_documents')->insert(['id'=>1,'invoice_id'=>1,'sentinel'=>'historical']);
     $db->table('payment_complements')->insert(['id'=>1,'status'=>'draft','deleted'=>0]);
-    $db->table('payment_complement_payments')->insert(['id'=>1,'payment_complement_id'=>1,'currency_code'=>'MXN','deleted'=>0]);
-    $db->table('payment_complement_documents')->insert(['id'=>1,'payment_complement_payment_id'=>1,'document_uuid'=>'11111111-1111-1111-1111-111111111111','deleted'=>0]);
+    $db->table('payment_complement_payments')->insert(['id'=>1,'payment_complement_id'=>1,'source_invoice_payment_id'=>1,'currency_code'=>'MXN','amount'=>'0','deleted'=>0]);
+    $db->table('payment_complement_documents')->insert(['id'=>1,'payment_complement_payment_id'=>1,'document_uuid'=>'11111111-1111-1111-1111-111111111111','amount_paid'=>'0','deleted'=>0]);
     $ledger = static function () use ($db): array { $out=[]; foreach (['invoices','invoice_payments','payment_allocations','financial_account_movements','fiscal_documents','payment_complement_documents'] as $table) $out[$table]=$db->table($table)->orderBy('id')->get()->getResultArray(); return $out; };
     $before = $ledger();
     if ($mysql) {
