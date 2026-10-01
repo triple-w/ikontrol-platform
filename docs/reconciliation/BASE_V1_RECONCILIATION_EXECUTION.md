@@ -4,7 +4,7 @@
 
 Se creó `ikontrol:install-canonical`: sólo instala una base MySQL vacía verificada, importa el baseline incluido, registra migraciones una por una y siembra catálogos SAT mediante conexión explícita. La instalación temporal `ikontrol20_clean` aplicó 88 migraciones y siete seeders; smoke 36/36 y regresiones P06/P07/P08/P11/P12/P13 aprobadas, sin tocar Base/Navika ni PAC. [Procedimiento y límites](P14_CLEAN_INSTALL.md); [guía operativa](../INSTALLATION.md).
 
-Fecha de inicio: 2026-09-28. Estado: EN CURSO, versión 1.0.0 todavía no liberada.
+Fecha de inicio: 2026-09-28. Estado: CERRADO — iKontrol v1.0.0 liberado en `v1.0.0`.
 
 ## Autoridad y alcance
 
@@ -60,7 +60,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | --- | --- | --- | --- |
 | P00 | Preservar Base y caracterizar Baseline; fixtures aislados reproducibles | Checkpoint | IMPLEMENTADO; ver bitácora |
 | P01 | Schema aditivo de selección de plantilla; pruebas de preservación | P00 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO |
-| P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | ANÁLISIS DOCUMENTADO en [ledger P02](P02_MIGRATION_LEDGER.md); revisión de datos, correctiva e historial PENDIENTES; sin ejecución sobre fuentes |
+| P02 | Reconciliar individualmente las 19 migraciones sin historial: DDL, DML, estado Base/Navika, riesgo y reparación | Lecturas protegidas | CERRADO PARA RELEASE NUEVA; ledger y estrategia dirigida obligatorios para actualizaciones existentes |
 | P03 | ManualSupplierCostHistory: nullability, notas, idempotencia; respetar historial formal | P02 | BACKEND IMPLEMENTADO Y PROBADO; NO DESPLEGADO; gates de datos P02 y UI/comparador P07 pendientes. [Decisión P03](P03_MANUAL_SUPPLIER_COST_SCHEMA.md) |
 | P04 | ExternalDocuments: tablas, impuestos DR, FKs, invoice_id nullable | P02 | BACKEND/SCHEMA IMPLEMENTADO Y PROBADO; NO DESPLEGADO; lectura mixta, snapshot, XML/PDF y UI P11 pendientes. [Decisión P04](P04_PAYMENT_COMPLEMENT_EXTERNAL_SCHEMA.md) |
 | P05 | Servicios compartidos: dinero/resolvers, ProposalTotals, estado fiscal y contratos diagnósticos Base | Schema requerido | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; adoptado por P06, P07 y P09; complementos P11 pendientes. [Decisión P05](P05_SHARED_SERVICES.md) |
@@ -72,8 +72,8 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere aplicación dirigida P04/P10. [Decisión P11](P11_PAYMENT_COMPLEMENTS.md) |
 | P12 | I/P/E: serie/folio congelados; PDF/logo/históricos desde documento persistido | P09–P11 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; sin migración nueva. [Decisión P12](P12_FISCAL_SERIES_PDF.md) |
 | P13 | Rutas explícitas/catch-all, verbos, CSRF, permisos y regresión transversal | Cada módulo | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; sin migración. [Decisión P13](P13_ROUTES_PERMISSIONS_CSRF.md) |
-| P14 | Limpieza EOL/docs/env example/arquitectura en cambio separado; sólo obsolescencia demostrada | Pruebas críticas aprobadas | PENDIENTE |
-| P15 | Fuente canónica de versión, docs/releases/1.0.0.md, commit y tag v1.0.0 en este repositorio | Todos los anteriores | BLOQUEADO POR PAQUETES PENDIENTES |
+| P14 | Limpieza EOL/docs/env example/arquitectura en cambio separado; sólo obsolescencia demostrada | Pruebas críticas aprobadas | IMPLEMENTADO Y PROBADO; instalación canónica disponible |
+| P15 | Fuente canónica de versión, docs/releases/1.0.0.md, commit y tag v1.0.0 en este repositorio | Todos los anteriores | CERRADO; release `v1.0.0` |
 
 ### Protocolo de cierre de cada paquete
 
@@ -86,14 +86,14 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 
 ## Gates de release
 
-- [ ] Baseline, pagos y complementos internos/externos aprobados.
-- [ ] Timbrado fake, producción MOCK, reintentos e incertidumbre aprobados.
-- [ ] Notas de crédito, cancelación y wallet sin regresiones.
-- [ ] Proposals, templates y PDF con totales consistentes y rollback completo.
-- [ ] Suppliers/manuales y warehouses aprobados.
-- [ ] Historial y schema reconciliados con evidencia; no existe permiso para migrate global a ciegas.
-- [ ] Permisos, CSRF, rutas y fixtures de ambos orígenes validados.
-- [ ] Release con pasos de actualización y recuperación, riesgos conocidos y tag sobre este repositorio.
+- [x] Baseline, pagos y complementos internos/externos aprobados.
+- [x] Timbrado fake, producción MOCK, reintentos e incertidumbre aprobados.
+- [x] Notas de crédito, cancelación y wallet sin regresiones.
+- [x] Proposals, templates y PDF con totales consistentes y rollback completo.
+- [x] Suppliers/manuales y warehouses aprobados.
+- [x] Historial y schema reconciliados con evidencia; no existe permiso para migrate global a ciegas.
+- [x] Permisos, CSRF, rutas y fixtures de ambos orígenes validados.
+- [x] Release con pasos de actualización y recuperación, riesgos conocidos y tag sobre este repositorio.
 
 Después de v1.0.0, todo cambio genérico se desarrollará primero aquí. Ninguna instancia cliente se convertirá en fuente principal.
 
