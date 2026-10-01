@@ -356,7 +356,10 @@ final class IkontrolBaselineCheckService
         ));
     }
 
-    private function satCatalogHealth(): array
+    /**
+     * Exposes the canonical SAT catalog health calculation to fiscal onboarding.
+     */
+    public function satCatalogHealth(): array
     {
         $names = ['product-service'=>'sat_product_service_keys','units'=>'sat_unit_keys','tax-codes'=>'sat_tax_codes','tax-factor-types'=>'sat_tax_factor_types','cfdi-uses'=>'sat_cfdi_uses','tax-regimes'=>'sat_tax_regimes','tax-object-codes'=>'sat_tax_object_codes','payment-forms'=>'sat_payment_forms','payment-methods'=>'sat_payment_methods','currencies'=>'sat_currencies'];
         $manifest = [];

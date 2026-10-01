@@ -74,6 +74,9 @@ $settings_menu["sales_and_prospects"][] = array("name" => "taxes", "url" => "tax
 $settings_menu["sales_and_prospects"][] = array("name" => "payment_methods", "url" => "payment_methods");
 $permissions = $login_user->permissions ?? array();
 if (!is_array($permissions)) $permissions = @unserialize((string) $permissions) ?: array();
+if ($login_user->is_admin || get_array_value($permissions, "fiscal_pac_status_view")) {
+    $settings_menu["sales_and_prospects"][] = array("name" => "fiscal_onboarding", "url" => "fiscal/onboarding");
+}
 if ($login_user->is_admin || get_array_value($permissions, "fiscal_issuers_view")) {
     $settings_menu["sales_and_prospects"][] = array("name" => "fiscal_issuers", "url" => "fiscal/issuers");
 }

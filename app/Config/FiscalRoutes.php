@@ -58,6 +58,8 @@ $routes->post(
 );
 $routes->post('fiscal/certificates/deactivate', 'Fiscal\Certificates::deactivate', ['filter' => 'csrf']);
 $routes->get('fiscal/pac/status', 'Fiscal\Stamping::pacStatus');
+$routes->get('fiscal/onboarding', 'Fiscal\Onboarding::index');
+$routes->get('fiscal/onboarding/status', 'Fiscal\Onboarding::status');
 $routes->post('fiscal/stamping/stamp', 'Fiscal\Stamping::stamp', ['filter' => 'csrf']);
 $routes->post('fiscal/stamping/verify-signed', 'Fiscal\Stamping::verifySigned', ['filter' => 'csrf']);
 $routes->post('fiscal/stamping/result/(:num)', 'Fiscal\Stamping::result/$1', ['filter' => 'csrf']);

@@ -3020,6 +3020,7 @@ $lang["tax_title"] = "Tax name";
 $lang["e_invoice_warning"] = "This module is not Mexican electronic invoicing and does not stamp documents with the SAT.";
 
 $lang["fiscal_issuers"] = "Fiscal issuers";
+$lang["fiscal_onboarding"] = "Fiscal onboarding";
 $lang["fiscal_issuer"] = "Fiscal issuer";
 $lang["add_fiscal_issuer"] = "Add fiscal issuer";
 $lang["fiscal_issuer_help"] = "Issuer profiles are separate from the company's commercial data.";

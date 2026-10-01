@@ -3222,6 +3222,7 @@ $lang["e_invoice_template"] = "Plantilla de factura electrónica genérica";
 $lang["e_invoice_warning"] = "Este módulo no corresponde a la facturación electrónica mexicana ni realiza timbrado ante el SAT.";
 
 $lang["fiscal_issuers"] = "Configuración fiscal de emisores";
+$lang["fiscal_onboarding"] = "Onboarding fiscal";
 $lang["fiscal_issuer"] = "Razón social emisora";
 $lang["add_fiscal_issuer"] = "Agregar emisor fiscal";
 $lang["fiscal_issuer_help"] = "El perfil emisor contiene los datos fiscales de la razón social que expedirá los comprobantes. No modifica los datos comerciales de la empresa.";
