@@ -1,5 +1,7 @@
 # Estado actual
 
+> P14 (2026-10-01): instalación limpia dirigida y smoke validados en `ikontrol20_clean`; ver [INSTALLATION.md](INSTALLATION.md) y [P14](reconciliation/P14_CLEAN_INSTALL.md). P15 sigue pendiente.
+
 Revisión: 2026-09-29. Rama canónica: `main`. iKontrol 1.0.0 aún no está liberado.
 
 ## Situación operativa

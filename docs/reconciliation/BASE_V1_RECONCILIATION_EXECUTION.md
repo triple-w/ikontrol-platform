@@ -1,5 +1,9 @@
 # Ejecución de la conciliación canónica iKontrol v1.0.0
 
+## Resultado P14 — 2026-10-01
+
+Se creó `ikontrol:install-canonical`: sólo instala una base MySQL vacía verificada, importa el baseline incluido, registra migraciones una por una y siembra catálogos SAT mediante conexión explícita. La instalación temporal `ikontrol20_clean` aplicó 88 migraciones y siete seeders; smoke 36/36 y regresiones P06/P07/P08/P11/P12/P13 aprobadas, sin tocar Base/Navika ni PAC. [Procedimiento y límites](P14_CLEAN_INSTALL.md); [guía operativa](../INSTALLATION.md).
+
 Fecha de inicio: 2026-09-28. Estado: EN CURSO, versión 1.0.0 todavía no liberada.
 
 ## Autoridad y alcance

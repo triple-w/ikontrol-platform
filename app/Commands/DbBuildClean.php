@@ -25,6 +25,11 @@ final class DbBuildClean extends BaseCommand
 
     public function run(array $params): void
     {
+        throw new RuntimeException(
+            'db:build-clean is retired because it invoked every historical migration blindly. '
+            . 'Use ikontrol:install-canonical only on a verified empty database.'
+        );
+
         $expected = (string) $this->option($params, 'expected-database', '');
         $allowWrite = $this->option($params, 'allow-write-clean-build', null);
         if ($allowWrite === null || $allowWrite === false) {
