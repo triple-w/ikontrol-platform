@@ -316,7 +316,7 @@ final class IkontrolBaselineCheckService
             group: 'fiscal',
             status: $count > 0 ? 'PASS' : 'FAIL',
             message: $count > 0 ? 'SAT product service keys are available.' : 'The SAT product-service catalog is empty.',
-            details: ['count' => $count],
+            details: ['count' => $count, 'sat_catalogs' => $this->satCatalogHealth()],
             required: true,
             remediationHint: 'Load the required SAT catalog entries before enabling fiscal workflows.'
         ));
@@ -354,6 +354,26 @@ final class IkontrolBaselineCheckService
             required: false,
             remediationHint: 'Validate the fiscal document and series tables before enabling fiscal issuance.'
         ));
+    }
+
+    private function satCatalogHealth(): array
+    {
+        $names = ['product-service'=>'sat_product_service_keys','units'=>'sat_unit_keys','tax-codes'=>'sat_tax_codes','tax-factor-types'=>'sat_tax_factor_types','cfdi-uses'=>'sat_cfdi_uses','tax-regimes'=>'sat_tax_regimes','tax-object-codes'=>'sat_tax_object_codes','payment-forms'=>'sat_payment_forms','payment-methods'=>'sat_payment_methods','currencies'=>'sat_currencies'];
+        $manifest = [];
+        $raw = @file_get_contents(ROOTPATH . 'resources/fiscal/catalogs/sat/manifest.json');
+        $decoded = json_decode((string) $raw, true);
+        foreach (($decoded['catalogs'] ?? []) as $entry) if (is_array($entry) && isset($entry['catalog_name'])) $manifest[$entry['catalog_name']]=$entry;
+        $result=[];
+        foreach ($names as $name=>$table) {
+            if (! $this->tableExists($table)) { $result[$name]=['status'=>'EMPTY','total'=>0,'active'=>0]; continue; }
+            $total=(int)$this->db->table($table)->countAllResults();$active=(int)$this->db->table($table)->where('is_active',1)->countAllResults();
+            $installed=null;if($this->tableExists('sat_catalog_installations'))$installed=$this->db->table('sat_catalog_installations')->where('catalog_name',$name)->get(1)->getRowArray();
+            $declared=$manifest[$name]??null;
+            $status=$total===0?'EMPTY':($installed===null?'UNMANAGED':($declared===null?'UNMANAGED':(($installed['source_checksum']??'')===str_replace('sha256:','',(string)($declared['checksum']??''))&&($installed['row_count']??-1)===$total?'OK':'OUTDATED')));
+            if($status==='OK'&&$active===0)$status='PARTIAL';
+            $result[$name]=['status'=>$status,'total'=>$total,'active'=>$active,'installed_source_version'=>$installed['source_version']??null,'installed_checksum'=>$installed['source_checksum']??null,'manifest_source_version'=>$declared['source_version']??null,'manifest_checksum'=>$declared['checksum']??null];
+        }
+        return $result;
     }
 
     private function migrationHistoryCheck(): array
