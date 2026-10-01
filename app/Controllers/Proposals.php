@@ -18,6 +18,16 @@ class Proposals extends Security_Controller {
         }
     }
 
+    private function can_accept_and_convert_proposal(): bool {
+        if ($this->login_user->user_type === "client" || $this->login_user->is_admin) {
+            return true;
+        }
+        $permissions = is_array($this->login_user->permissions)
+            ? $this->login_user->permissions
+            : (@unserialize((string) $this->login_user->permissions) ?: array());
+        return (bool) get_array_value($permissions, "proposal.accept_and_convert");
+    }
+
     /* load proposal list view */
 
     function index() {
@@ -292,6 +302,9 @@ class Proposals extends Security_Controller {
             } else {
                 //updating by team members
                 if ($status === "accepted") {
+                    if (!$this->can_accept_and_convert_proposal()) {
+                        app_redirect("forbidden");
+                    }
                     try {
                         $result = (new ProposalAcceptanceService())->acceptAndConvert((int) $proposal_id, (int) $this->login_user->id);
                         log_notification("proposal_accepted", array("proposal_id" => $proposal_id));
@@ -547,6 +560,7 @@ class Proposals extends Security_Controller {
 
                 $view_data["proposal_id"] = $proposal_id;
                 $view_data["is_proposal_editable"] = $this->_is_proposal_editable($proposal_id);
+                $view_data["can_accept_and_convert"] = $this->can_accept_and_convert_proposal();
 
                 $view_data["custom_field_headers_of_task"] = $this->Custom_fields_model->get_custom_field_headers_for_table("tasks", $this->login_user->is_admin, $this->login_user->user_type);
 
@@ -914,6 +928,7 @@ class Proposals extends Security_Controller {
             $view_data["sort_as_decending"] = $sort_as_decending;
 
             $view_data["has_pdf_access"] = $this->check_proposal_pdf_access_for_clients($this->login_user->user_type);
+            $view_data["can_accept_and_convert"] = $this->can_accept_and_convert_proposal();
 
             if ($is_editor_preview) {
                 $view_data["is_editor_preview"] = clean_data($is_editor_preview);
@@ -1317,9 +1332,11 @@ class Proposals extends Security_Controller {
             exit();
         }
 
-        $this->validate_proposal_access($id, true);
-
         $comment_info = $this->Proposal_comments_model->get_one($id);
+        if (!$comment_info || !$comment_info->id) {
+            show_404();
+        }
+        $this->validate_proposal_access($comment_info->proposal_id, true);
 
         //only admin and creator can delete the comment
         if (!($this->login_user->is_admin || $comment_info->created_by == $this->login_user->id)) {

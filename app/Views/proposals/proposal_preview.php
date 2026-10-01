@@ -55,9 +55,9 @@
                                 <div class="clearfix proposal-preview-button">
                                     <div class="mr15 strong float-start grid-button-group">
                                         <?php
-                                        if ($login_user->user_type === "client" && get_setting("add_signature_option_on_accepting_proposal")) {
+                                        if (!empty($can_accept_and_convert) && $login_user->user_type === "client" && get_setting("add_signature_option_on_accepting_proposal")) {
                                             echo modal_anchor(get_uri("offer/accept_proposal_modal_form/$proposal_info->id"), "<i data-feather='check-circle' class='icon-16'></i> " . app_lang('accept_proposal'), array("class" => "btn btn-success mr15", "title" => app_lang('accept_proposal')));
-                                        } else {
+                                        } else if (!empty($can_accept_and_convert)) {
                                             echo ajax_anchor(get_uri("proposals/update_proposal_status/$proposal_info->id/accepted"), "<i data-feather='check-circle' class='icon-16'></i> " . app_lang('mark_as_accepted'), array("class" => "btn btn-success mr15", "title" => app_lang('mark_as_accepted'), "data-reload-on-success" => "1"));
                                         }
                                         ?>

@@ -61,9 +61,9 @@ $routes->get('payment_complements/review/(:num)', 'Payment_complements::review/$
 $routes->post('payment_complements/(:num)/fiscal-snapshot', 'Payment_complements::fiscalSnapshot/$1', ['filter' => 'csrf']);
 $routes->get('payment_complements/preview/(:num)', 'Payment_complements::preview/$1');
 $routes->post('payment_complements/(:num)/stamp', 'Payment_complements::stamp/$1', ['filter' => 'csrf']);
-$routes->post('payment_complements/cancel/form', 'Payment_complement_cancellations::form');
+$routes->post('payment_complements/cancel/form', 'Payment_complement_cancellations::form', ['filter' => 'csrf']);
 $routes->post('payment_complements/(:num)/cancel/request', 'Payment_complement_cancellations::request/$1', ['filter' => 'csrf']);
-$routes->post('payment_complements/cancel/status/form', 'Payment_complement_cancellations::statusForm');
+$routes->post('payment_complements/cancel/status/form', 'Payment_complement_cancellations::statusForm', ['filter' => 'csrf']);
 $routes->post('payment_complements/(:num)/cancel/check', 'Payment_complement_cancellations::check/$1', ['filter' => 'csrf']);
 $routes->get('payment_complements/(:num)/cancel/receipt/(:num)', 'Payment_complement_cancellations::receipt/$1/$2');
 $routes->post('payment_complements/(:num)/discard', 'Payment_complements::discard/$1', ['filter' => 'csrf']);
@@ -78,8 +78,8 @@ $routes->post('credit_notes/create', 'Credit_notes::create', ['filter'=>'csrf'])
 $routes->get('credit_notes/(:num)', 'Credit_notes::edit/$1');
 $routes->post('credit_notes/(:num)/save', 'Credit_notes::save/$1', ['filter'=>'csrf']);
 $routes->post('credit_notes/(:num)/items/(:num)/remove', 'Credit_notes::remove_item/$1/$2', ['filter'=>'csrf']);
-$routes->post('credit_notes/(:num)/review', 'Credit_notes::review/$1');
-$routes->post('credit_notes/(:num)/preview', 'Credit_notes::preview/$1');
+$routes->post('credit_notes/(:num)/review', 'Credit_notes::review/$1', ['filter'=>'csrf']);
+$routes->post('credit_notes/(:num)/preview', 'Credit_notes::preview/$1', ['filter'=>'csrf']);
 $routes->post('credit_notes/(:num)/stamp', 'Credit_notes::stamp/$1', ['filter'=>'csrf']);
 
 // DOLD Fase 1: proveedores y memoria comercial de costos.
@@ -97,6 +97,65 @@ $routes->post('proposals/products/(:num)/suppliers/(:num)/cost-reference', 'Prop
 $routes->post('proposals/items/(:num)/supplier-quotes/save', 'Proposals::save_supplier_quote/$1', ['filter'=>'csrf']);
 $routes->post('proposals/items/(:num)/supplier-quotes/(:num)/select', 'Proposals::select_supplier_quote/$1/$2', ['filter'=>'csrf']);
 $routes->post('proposals/items/(:num)/supplier-quotes/(:num)/delete', 'Proposals::delete_supplier_quote/$1/$2', ['filter'=>'csrf']);
+
+// P13: Proposals and templates use explicit verbs so legacy controller
+// discovery cannot expose mutations through GET or unfiltered POST aliases.
+$routes->get('proposals', 'Proposals::index');
+$routes->get('proposals/view/(:num)', 'Proposals::view/$1');
+$routes->get('proposals/preview/(:num)', 'Proposals::preview/$1');
+$routes->get('proposals/preview/(:num)/(:segment)', 'Proposals::preview/$1/$2');
+$routes->get('proposals/preview/(:num)/(:segment)/(:segment)', 'Proposals::preview/$1/$2/$3');
+$routes->get('proposals/editor/(:num)', 'Proposals::editor/$1');
+$routes->get('proposals/email_view_report/(:num)', 'Proposals::email_view_report/$1');
+$routes->get('proposals/download_pdf/(:num)', 'Proposals::download_pdf/$1');
+$routes->get('proposals/download_pdf/(:num)/(:segment)', 'Proposals::download_pdf/$1/$2');
+$routes->get('proposals/download_pdf/(:num)/(:segment)/(:segment)', 'Proposals::download_pdf/$1/$2/$3');
+$routes->get('proposals/download_comment_files/(:num)', 'Proposals::download_comment_files/$1');
+$routes->post('proposals/modal_form', 'Proposals::modal_form', ['filter'=>'csrf']);
+$routes->post('proposals/save_view', 'Proposals::save_view', ['filter'=>'csrf']);
+$routes->post('proposals/save', 'Proposals::save', ['filter'=>'csrf']);
+$routes->post('proposals/update_proposal_status/(:num)/(:segment)', 'Proposals::update_proposal_status/$1/$2', ['filter'=>'csrf']);
+$routes->post('proposals/delete', 'Proposals::delete', ['filter'=>'csrf']);
+$routes->post('proposals/list_data', 'Proposals::list_data', ['filter'=>'csrf']);
+$routes->post('proposals/proposal_list_data_of_client/(:num)', 'Proposals::proposal_list_data_of_client/$1', ['filter'=>'csrf']);
+$routes->post('proposals/discount_modal_form', 'Proposals::discount_modal_form', ['filter'=>'csrf']);
+$routes->post('proposals/save_discount', 'Proposals::save_discount', ['filter'=>'csrf']);
+$routes->post('proposals/item_modal_form', 'Proposals::item_modal_form', ['filter'=>'csrf']);
+$routes->post('proposals/save_item', 'Proposals::save_item', ['filter'=>'csrf']);
+$routes->post('proposals/delete_item', 'Proposals::delete_item', ['filter'=>'csrf']);
+$routes->post('proposals/item_list_data/(:num)', 'Proposals::item_list_data/$1', ['filter'=>'csrf']);
+$routes->post('proposals/get_proposal_item_suggestion', 'Proposals::get_proposal_item_suggestion', ['filter'=>'csrf']);
+$routes->post('proposals/get_proposal_item_info_suggestion', 'Proposals::get_proposal_item_info_suggestion', ['filter'=>'csrf']);
+$routes->post('proposals/send_proposal_modal_form/(:num)', 'Proposals::send_proposal_modal_form/$1', ['filter'=>'csrf']);
+$routes->post('proposals/get_send_proposal_template/(:num)/(:num)/(:segment)', 'Proposals::get_send_proposal_template/$1/$2/$3', ['filter'=>'csrf']);
+$routes->post('proposals/send_proposal', 'Proposals::send_proposal', ['filter'=>'csrf']);
+$routes->post('proposals/update_item_sort_values', 'Proposals::update_item_sort_values', ['filter'=>'csrf']);
+$routes->post('proposals/update_item_sort_values/(:num)', 'Proposals::update_item_sort_values/$1', ['filter'=>'csrf']);
+$routes->post('proposals/comment_modal_form', 'Proposals::comment_modal_form', ['filter'=>'csrf']);
+$routes->post('proposals/save_comment', 'Proposals::save_comment', ['filter'=>'csrf']);
+$routes->post('proposals/delete_comment/(:num)', 'Proposals::delete_comment/$1', ['filter'=>'csrf']);
+
+$routes->get('proposal_templates', 'Proposal_templates::index');
+$routes->get('proposal_templates/form', 'Proposal_templates::form');
+$routes->get('proposal_templates/form/(:num)', 'Proposal_templates::form/$1');
+$routes->post('proposal_templates/modal_form', 'Proposal_templates::modal_form', ['filter'=>'csrf']);
+$routes->post('proposal_templates/save_template', 'Proposal_templates::save_template', ['filter'=>'csrf']);
+$routes->post('proposal_templates/save', 'Proposal_templates::save', ['filter'=>'csrf']);
+$routes->post('proposal_templates/delete', 'Proposal_templates::delete', ['filter'=>'csrf']);
+$routes->post('proposal_templates/list_data', 'Proposal_templates::list_data', ['filter'=>'csrf']);
+$routes->post('proposal_templates/list_data/(:segment)', 'Proposal_templates::list_data/$1', ['filter'=>'csrf']);
+$routes->post('proposal_templates/insert_template_modal_form', 'Proposal_templates::insert_template_modal_form', ['filter'=>'csrf']);
+$routes->post('proposal_templates/get_template_data/(:num)', 'Proposal_templates::get_template_data/$1', ['filter'=>'csrf']);
+
+// Public proposal access keeps the public key contract, but all state changes
+// remain POST + CSRF and cannot fall through legacy controller discovery.
+$routes->get('offer/preview/(:num)/(:segment)', 'Offer::preview/$1/$2');
+$routes->get('offer/download_pdf/(:num)/(:segment)', 'Offer::download_pdf/$1/$2');
+$routes->post('offer/update_proposal_status/(:num)/(:segment)/(:segment)', 'Offer::update_proposal_status/$1/$2/$3', ['filter'=>'csrf']);
+$routes->post('offer/print_proposal/(:num)/(:segment)', 'Offer::print_proposal/$1/$2', ['filter'=>'csrf']);
+$routes->post('offer/accept_proposal_modal_form/(:num)', 'Offer::accept_proposal_modal_form/$1', ['filter'=>'csrf']);
+$routes->post('offer/accept_proposal_modal_form/(:num)/(:segment)', 'Offer::accept_proposal_modal_form/$1/$2', ['filter'=>'csrf']);
+$routes->post('offer/accept_proposal', 'Offer::accept_proposal', ['filter'=>'csrf']);
 
 // DOLD Almacenes: ledger logístico independiente de productos comerciales.
   $routes->get('warehouses', 'Warehouse_logistics::index');
@@ -158,7 +217,15 @@ $routes->post('estimate/accept_estimate', 'Estimate::accept_estimate', ['filter'
 $routes->get('estimate/update_estimate_status/(:num)/(:segment)/(:segment)', 'Estimate::update_estimate_status/$1/$2/$3');
 $routes->get('estimates/update_estimate_status/(:num)/(:segment)', 'Estimates::update_estimate_status/$1/$2');
 
+$p13_explicit_controllers = array(
+    'Proposals', 'Proposal_templates', 'Offer', 'Suppliers', 'Warehouses',
+    'Warehouse_logistics', 'Warehouse_transfers', 'Warehouse_labels',
+    'Payment_complements', 'Payment_complement_cancellations', 'Credit_notes'
+);
 foreach ($controller_dropdown as $controller) {
+    if (in_array($controller, $p13_explicit_controllers, true)) {
+        continue;
+    }
     $routes->get(strtolower($controller), "$controller::index");
     $routes->get(strtolower($controller) . '/(:any)', "$controller::$1");
     $routes->post(strtolower($controller) . '/(:any)', "$controller::$1");

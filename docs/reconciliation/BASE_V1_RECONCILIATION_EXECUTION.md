@@ -67,7 +67,7 @@ No se ejecutarán esas operaciones contra Base/Navika. Se debe analizar cada efe
 | P10 | Lifecycle/reintentos/unknown/locks/wallet; nunca reintentar con envío posible | P09 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; migración aditiva pendiente de aplicación dirigida. [Decisión P10](P10_STAMPING_LIFECYCLE.md) |
 | P11 | Complementos internos/externos/mixtos: snapshot, builder, moneda, saldos e impuestos; sin escrituras administrativas ficticias | P04, P05, P10 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; requiere aplicación dirigida P04/P10. [Decisión P11](P11_PAYMENT_COMPLEMENTS.md) |
 | P12 | I/P/E: serie/folio congelados; PDF/logo/históricos desde documento persistido | P09–P11 | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; sin migración nueva. [Decisión P12](P12_FISCAL_SERIES_PDF.md) |
-| P13 | Rutas explícitas/catch-all, verbos, CSRF, permisos y regresión transversal | Cada módulo | PENDIENTE |
+| P13 | Rutas explícitas/catch-all, verbos, CSRF, permisos y regresión transversal | Cada módulo | IMPLEMENTADO Y PROBADO; NO DESPLEGADO; sin migración. [Decisión P13](P13_ROUTES_PERMISSIONS_CSRF.md) |
 | P14 | Limpieza EOL/docs/env example/arquitectura en cambio separado; sólo obsolescencia demostrada | Pruebas críticas aprobadas | PENDIENTE |
 | P15 | Fuente canónica de versión, docs/releases/1.0.0.md, commit y tag v1.0.0 en este repositorio | Todos los anteriores | BLOQUEADO POR PAQUETES PENDIENTES |
 
@@ -132,6 +132,10 @@ Un normalizador común alimenta snapshot y XML Pagos 2.0 para complementos inter
 ## Resultado P12 — 2026-09-30
 
 Ingreso, pago y egreso congelan serie/folio en `fiscal_documents`; XML y PDF consumen evidencia persistida. Pago materializa su Pre-XML final después de reservar la identidad, egreso asigna bajo transacción efectiva y el PDF valida tipo, serie, folio y UUID contra XML timbrado/documento. El logo vigente queda limitado a presentación. [Contrato y evidencia](P12_FISCAL_SERIES_PDF.md). Validación: 32 aserciones P12 MySQL, 28 P11, 15 de regeneración PDF, 16 P09 y 26 P10; fake/MOCK, cero PAC real. P13 conserva la auditoría transversal de rutas y permisos.
+
+## Resultado P13 — 2026-10-01
+
+Los controladores raíz de P06–P12 salieron del catch-all y usan rutas explícitas; toda mutación y todo POST legacy de modal/listado queda bajo CSRF. Proposal exige capacidad separada para conversión; complementos separan ver/crear/editar/descartar de timbrar; conciliación, estado, XML y PDF validan permiso y documento. [Contrato y evidencia](P13_ROUTES_PERMISSIONS_CSRF.md). Validación: 24 aserciones de superficie HTTP más 155 aserciones de regresión de P06–P12; schemas temporales eliminados, cero PAC real. P14 queda habilitado sólo para limpieza separada.
 
 ## Bitácora
 

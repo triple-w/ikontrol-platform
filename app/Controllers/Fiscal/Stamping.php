@@ -144,7 +144,7 @@ final class Stamping extends Security_Controller
     public function generatePdf($documentId = 0):void
     {
         $id=(int)$documentId;
-        $this->guard('fiscal_pdf_generate');
+        $this->guardDocumentAny($id, ['fiscal_pdf_generate']);
         if ((bool) $this->request->getPost('regenerate')) {
             $this->guard('fiscal.advanced.regenerate_pdf');
         }
@@ -204,8 +204,8 @@ final class Stamping extends Security_Controller
 
     public function satStatus(): void
     {
-        $this->guard('fiscal_stamp_status');
         $id = (int) $this->request->getPost('fiscal_document_id');
+        $this->guardDocument($id, 'fiscal_stamp_status');
         $db = db_connect();
         try {
             $stamp = $db->table('fiscal_document_stamps')->where('fiscal_document_id', $id)->get(1)->getRow();
@@ -249,10 +249,14 @@ final class Stamping extends Security_Controller
 
     public function reconcile(): void
     {
-        $this->guard('fiscal_stamp_reconcile');
+        $attemptId = (int) $this->request->getPost('attempt_id');
+        $attempt = db_connect()->table('fiscal_stamp_attempts')
+            ->select('fiscal_document_id')->where('id', $attemptId)->get(1)->getRow();
+        if (!$attempt) throw PageNotFoundException::forPageNotFound();
+        $this->guardDocument((int) $attempt->fiscal_document_id, 'fiscal_stamp_reconcile');
         try {
             $result = (new FiscalStampReconciliationService())->reconcile(
-                (int) $this->request->getPost('attempt_id'),
+                $attemptId,
                 (int) $this->login_user->id,
                 true
             );
@@ -349,7 +353,7 @@ final class Stamping extends Security_Controller
         $document = db_connect()->table('fiscal_documents')
             ->where(['id' => $id, 'deleted' => 0])->get(1)->getRow();
         if (!$document) throw PageNotFoundException::forPageNotFound();
-        if (!$this->can_view_invoices((int) $document->invoice_id)) app_redirect('forbidden');
+        if (!$this->canAccessFiscalDocument($document)) app_redirect('forbidden');
     }
 
     private function guardDocumentAny(int $id, array $permissions): void
@@ -366,6 +370,33 @@ final class Stamping extends Security_Controller
         }
         $document = db_connect()->table('fiscal_documents')->where(['id'=>$id,'deleted'=>0])->get(1)->getRow();
         if (!$document) throw PageNotFoundException::forPageNotFound();
-        if (!$this->can_view_invoices((int)$document->invoice_id)) app_redirect('forbidden');
+        if (!$this->canAccessFiscalDocument($document)) app_redirect('forbidden');
+    }
+
+    private function canAccessFiscalDocument(object $document): bool
+    {
+        if ((int) ($document->invoice_id ?? 0) > 0) {
+            return $this->can_view_invoices((int) $document->invoice_id);
+        }
+
+        $db = db_connect();
+        if ($db->tableExists('payment_complements') && $db->table('payment_complements')
+            ->where(['fiscal_document_id' => (int) $document->id, 'deleted' => 0])->countAllResults() > 0) {
+            return $this->hasAnyPermission(['fiscal.drafts.view', 'fiscal_invoices_view']);
+        }
+
+        return false;
+    }
+
+    private function hasAnyPermission(array $permissions): bool
+    {
+        if ($this->login_user->is_admin) return true;
+        $all = is_array($this->login_user->permissions)
+            ? $this->login_user->permissions
+            : (@unserialize((string) $this->login_user->permissions) ?: []);
+        foreach ($permissions as $permission) {
+            if (get_array_value($all, $permission)) return true;
+        }
+        return false;
     }
 }

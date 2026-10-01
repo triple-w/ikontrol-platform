@@ -24,7 +24,7 @@
                     <?php } ?>
                     <?php if (!empty($proposal_info->converted_sale_id)) { ?>
                         <li role="presentation"><?php echo anchor(get_uri("invoices/view/" . $proposal_info->converted_sale_id), "<i data-feather='file-text' class='icon-16'></i> " . app_lang('view_invoice'), array("class" => "dropdown-item")); ?> </li>
-                    <?php } else { ?>
+                    <?php } else if (!empty($can_accept_and_convert)) { ?>
                         <li role="presentation"><?php echo ajax_anchor(get_uri("proposals/update_proposal_status/".$proposal_info->id."/accepted"), "<i data-feather='refresh-cw' class='icon-16'></i> Convertir en venta", array("data-reload-on-success"=>"1","class"=>"dropdown-item")); ?></li>
                     <?php } ?>
                     <?php if ($show_contract_option) { ?>
@@ -35,7 +35,7 @@
                 <li role="presentation" class="dropdown-divider"></li>
 
                 <?php if ($proposal_status == "draft" || $proposal_status == "sent") { ?>
-                    <li role="presentation"><?php echo ajax_anchor(get_uri("proposals/update_proposal_status/" . $proposal_info->id . "/accepted"), "<i data-feather='check-circle' class='icon-16'></i> " . app_lang('mark_as_accepted'), array("data-reload-on-success" => "1", "class" => "dropdown-item")); ?> </li>
+                    <?php if (!empty($can_accept_and_convert)) { ?><li role="presentation"><?php echo ajax_anchor(get_uri("proposals/update_proposal_status/" . $proposal_info->id . "/accepted"), "<i data-feather='check-circle' class='icon-16'></i> " . app_lang('mark_as_accepted'), array("data-reload-on-success" => "1", "class" => "dropdown-item")); ?> </li><?php } ?>
                     <li role="presentation"><?php echo ajax_anchor(get_uri("proposals/update_proposal_status/" . $proposal_info->id . "/declined"), "<i data-feather='x-circle' class='icon-16'></i> " . app_lang('mark_as_rejected'), array("data-reload-on-success" => "1", "class" => "dropdown-item")); ?> </li>
                     <?php if ($proposal_status == "draft") { ?>
                         <li role="presentation"><?php echo ajax_anchor(get_uri("proposals/update_proposal_status/" . $proposal_info->id . "/sent"), "<i data-feather='send' class='icon-16'></i> " . app_lang('mark_as_sent'), array("data-reload-on-success" => "1", "class" => "dropdown-item")); ?> </li>
