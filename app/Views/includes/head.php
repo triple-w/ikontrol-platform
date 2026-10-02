@@ -78,6 +78,7 @@
 
     load_js(array(
         "assets/js/app.all.js",
+        "assets/js/bootstrap-popover-compat.js",
         "assets/js/fiscal_item_editor.js"
     ));
 

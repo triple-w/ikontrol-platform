@@ -1082,18 +1082,9 @@ class Security_Controller extends App_Controller {
 
     //prevent editing of invoice after certain state
     protected function is_invoice_editable($_invoice, $is_clone = 0) {
-        if (get_setting("enable_invoice_lock_state")) {
-            $invoice_info = is_object($_invoice) ? $_invoice : $this->Invoices_model->get_one($_invoice);
-            if (!$invoice_info->id || $is_clone) {
-                return true;
-            }
-
-            if ($invoice_info->status == "draft") {
-                return true;
-            }
-        } else {
-            return true;
-        }
+        $invoice_info = is_object($_invoice) ? $_invoice : $this->Invoices_model->get_one($_invoice);
+        if (!$invoice_info->id || $is_clone) return true;
+        return (new \App\Services\Sales\SaleLifecycleService())->canEdit((int)$invoice_info->id, (int)($this->login_user->id ?? 0), true)['allowed'];
     }
 
     public function can_client_access($menu_item, $check_module = true) {

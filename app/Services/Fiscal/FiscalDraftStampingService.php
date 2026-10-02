@@ -128,7 +128,7 @@ final class FiscalDraftStampingService
         $document=$this->db->table('fiscal_documents')->select('invoice_id')->where('id',$documentId)->get(1)->getRow();
         if(!empty($document->invoice_id))$saleIds[]=(int)$document->invoice_id;
         foreach(array_values(array_unique(array_filter($saleIds)))as$saleId){
-            try{$sale=$this->db->table('invoices')->select('commercial_status')->where(['id'=>$saleId,'deleted'=>0])->get(1)->getRow();if($sale&&in_array((string)$sale->commercial_status,['draft','open'],true))(new SaleLifecycleService($this->db))->close($saleId,$userId,'Cierre automatico posterior a timbrado CFDI');}
+            try{(new SaleLifecycleService($this->db))->finalizeFiscalIssuance($saleId,$userId);}
             catch(Throwable $closeError){$pending[]='sale_close';$this->postStampWarning($draftId,$documentId,$userId,'sale_close',$closeError);}
         }
         $pdfAvailable=(string)($stamp->pdf_status??'')==='valid'&&(int)($stamp->pac_pdf_artifact_id??0)>0;

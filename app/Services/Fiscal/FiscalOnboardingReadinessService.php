@@ -55,30 +55,15 @@ final class FiscalOnboardingReadinessService
 
         $environment = FiscalRuntimeContext::fiscalEnvironment($this->fiscal);
         $runtime = FiscalRuntimeContext::from($this->fiscal, $this->pac);
-        $issuer = $this->db->table('fiscal_profiles')
-            ->where([
-                'profile_type' => 'issuer',
-                'environment' => $environment,
-                'is_default' => 1,
-            ])
-            ->whereIn('status', ['active', 'ready'])
-            ->get(1)
-            ->getRow();
-        $certificate = $issuer
-            ? $this->db->table('fiscal_issuer_certificates')
-                ->where([
-                    'issuer_profile_id' => $issuer->id,
-                    'status' => 'valid',
-                    'is_default' => 1,
-                    'deleted' => 0,
-                ])
-                ->get(1)
-                ->getRow()
-            : null;
+        // Issuer identity and CSD readiness are separate onboarding requirements.
+        // A migrated valid candidate may legitimately lack historical default flags.
+        $issuerResolver = new FiscalIssuerResolver($this->db);
+        $issuer = $issuerResolver->profileCandidates(null, $environment)[0] ?? null;
         $csd = ['ready' => false, 'label' => 'MISSING'];
-        if ($certificate) {
+        foreach ($issuer ? $issuerResolver->certificateCandidates((int)$issuer->id) : [] as $certificate) {
             try {
                 $csd = (new CsdOperationalStatusService($this->db))->forCertificate($certificate);
+                if (!empty($csd['ready'])) break;
             } catch (Throwable) {
                 // A malformed or unreadable certificate is reported as not ready.
             }

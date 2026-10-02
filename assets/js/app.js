@@ -4396,7 +4396,8 @@ var $appFilterXhrRequest = 'new';
 
 
             //prepare the list of columns when opening the popover
-            $instanceWrapper.find(".column-show-hide-popover").popover({
+            var $columnPopover = $instanceWrapper.find(".column-show-hide-popover"),
+                columnPopoverOptions = {
                 html: true,
                 sanitize: false,
                 content: function () {
@@ -4424,7 +4425,16 @@ var $appFilterXhrRequest = 'new';
                     return "<ul class='list-group' data-table='" + tableId + "'>" + tableColumns + "</ul>";
 
                 }
-            });
+            };
+
+            // Bootstrap 5 no longer guarantees the legacy jQuery popover plugin.
+            if ($.fn.popover) {
+                $columnPopover.popover(columnPopoverOptions);
+            } else if (window.bootstrap && window.bootstrap.Popover) {
+                $columnPopover.each(function () {
+                    window.bootstrap.Popover.getOrCreateInstance(this, columnPopoverOptions);
+                });
+            }
 
 
             //show/hide column when clicking on the list items    
@@ -4469,8 +4479,10 @@ var $appFilterXhrRequest = 'new';
 
             $('.destroy-popover').on('click', function (e) {
                 if ($(e.target).closest("button").attr("data-bs-toggle") !== "popover" && !$(e.target).closest(".popover").length && !$(e.target).hasClass("editable")) {
-                    var visiblePopoverId = $(".popover.in").attr("id");
-                    $("[aria-describedby=" + visiblePopoverId + "]").trigger("click");
+                    var visiblePopoverId = $(".popover.show, .popover.in").attr("id");
+                    if (visiblePopoverId) {
+                        $("[aria-describedby='" + visiblePopoverId + "']").trigger("click");
+                    }
 
                 }
             });

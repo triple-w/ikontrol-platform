@@ -13,6 +13,7 @@ use App\Services\Fiscal\FiscalOnboardingReadinessService;
 use App\Services\Fiscal\FiscalReadinessActionService;
 use App\Services\Fiscal\FiscalInvoiceFlowService;
 use App\Services\Fiscal\FiscalReviewPreparation;
+use App\Services\Fiscal\FiscalSaleAttemptResolver;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use Throwable;
 
@@ -172,7 +173,7 @@ final class Drafts extends Security_Controller
         if($review['blocker_groups'])$review['status']='review_needed';
         return$review;
     }
-    private function activeDraftForSale(int$saleId):?int{$row=db_connect()->table('fiscal_drafts d')->select('d.id')->join('fiscal_draft_sales a','a.fiscal_draft_id=d.id')->where(['a.sale_id'=>$saleId,'a.allocation_status'=>'reserved','d.data_origin'=>'operational'])->whereIn('d.status',['draft','ready','error'])->orderBy('d.id','DESC')->get(1)->getRow();return$row?(int)$row->id:null;}
+    private function activeDraftForSale(int$saleId):?int{return(new FiscalSaleAttemptResolver())->draftId($saleId);}
     private function defaultReviewInput(array$data,int$saleId):array
     {
         $issuer=$data['issuer']??null;$receiver=$data['receiver']??null;$series=null;foreach(($data['series']??[])as$candidate)if((int)$candidate->issuer_profile_id===(int)($issuer->id??0)){$series=$candidate;break;}
