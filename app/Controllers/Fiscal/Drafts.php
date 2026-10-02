@@ -57,7 +57,7 @@ final class Drafts extends Security_Controller
         $this->guardAny(['fiscal.drafts.create','fiscal.sales.invoice']);$this->guardSale((int)$saleId);
         $workflow=new FiscalDraftWorkflowService();$draftId=$this->activeDraftForSale((int)$saleId);
         $data=$draftId?$this->formData($draftId,[]):$this->formData(null,[(int)$saleId]);
-        if(!$draftId){$input=$this->defaultReviewInput($data,(int)$saleId);$input['save_as_draft']=0;$data['preparation']=(new FiscalReviewPreparation())->prepare($data,$input);}
+        if(!$draftId){$input=$this->defaultReviewInput($data,(int)$saleId);$input['save_as_draft']=0;try{$data['preparation']=(new FiscalReviewPreparation())->prepare($data,$input);}catch(Throwable$e){if(!str_contains($e->getMessage(),'FISCAL_CALCULATION_'))throw$e;$data['preparation']=['draft'=>['issue_date'=>$input['issue_date']??'','subtotal'=>'0.000000','discount'=>'0.000000','tax_total'=>'0.000000','total'=>'0.000000'],'items'=>[],'allocations'=>[],'totals'=>['subtotal'=>'0.000000','discount'=>'0.000000','transferred'=>'0.000000','withheld'=>'0.000000','total'=>'0.000000'],'validation'=>['valid'=>false,'errors'=>[['field'=>'sales','code'=>'SALES_REQUIRED','message'=>'La venta no contiene partidas para facturar.','section'=>'sales']],'warnings'=>[]]];}}
         $data['normal_sale_id']=(int)$saleId;$data['review']=$this->review($data);
         if($this->request->isAJAX())return$this->template->view('fiscal/drafts/review',$data);
         return$this->template->rander('fiscal/drafts/review',$data);

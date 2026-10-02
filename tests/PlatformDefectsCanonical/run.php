@@ -62,4 +62,8 @@ $security=file_get_contents(APPPATH.'Controllers/Security_Controller.php');$invo
 $app=file_get_contents(ROOTPATH.'assets/js/app.js');$shim=file_get_contents(ROOTPATH.'assets/js/bootstrap-popover-compat.js');$head=file_get_contents(APPPATH.'Views/includes/head.php');
 $assert(str_contains($app,'window.bootstrap.Popover')&&str_contains($shim,'getOrCreateInstance')&&str_contains($head,'bootstrap-popover-compat.js'),'appTable dispone de popover Bootstrap 5 sin depender del plugin jQuery');
 
+$emptyPreparation=(new App\Services\Fiscal\FiscalReviewPreparation($db))->prepare(['issuer'=>(object)['id'=>1],'receiver'=>(object)['id'=>1],'series'=>[],'sales'=>[]],['issue_date'=>'2026-10-02T12:00:00','currency_code'=>'MXN','exchange_rate'=>'1.000000','payment_method_code'=>'PUE','payment_form_code'=>'99','cfdi_use_code'=>'G01','fiscal_series_id'=>1]);
+$assert($emptyPreparation['validation']['valid']===false && in_array('La venta no contiene partidas para facturar.', array_column($emptyPreparation['validation']['errors'],'message'), true),'preparación sin líneas devuelve blocker de negocio y no dispara cálculo vacío');
+$assert($emptyPreparation['items']===[] && $emptyPreparation['allocations']===[] && $emptyPreparation['totals']['total']==='0.000000','preparación vacía queda en modo validación sin entrar al cálculo canónico');
+
 echo"passed={$pass}\n";

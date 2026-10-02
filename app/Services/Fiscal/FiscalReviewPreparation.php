@@ -61,6 +61,28 @@ final class FiscalReviewPreparation
             }
         }
 
+        if ($items === []) {
+            $emptyTotals = [
+                'subtotal' => '0.000000',
+                'discount' => '0.000000',
+                'transferred' => '0.000000',
+                'withheld' => '0.000000',
+                'total' => '0.000000',
+            ];
+            $validation = [
+                'valid' => false,
+                'errors' => [[
+                    'field' => 'sales',
+                    'code' => 'SALES_REQUIRED',
+                    'message' => 'La venta no contiene partidas para facturar.',
+                    'section' => 'sales',
+                ]],
+                'warnings' => [],
+            ];
+            $draft += ['subtotal' => '0.000000', 'discount' => '0.000000', 'tax_total' => '0.000000', 'total' => '0.000000'];
+            return ['draft' => $draft, 'items' => [], 'allocations' => [], 'totals' => $emptyTotals, 'validation' => $validation];
+        }
+
         $calculation = (new FiscalCanonicalCalculationService())->calculate($items);
         $totals = $calculation['totals'];
         $allocations = $calculation['allocations'];
