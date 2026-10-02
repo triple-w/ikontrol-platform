@@ -372,7 +372,26 @@ final class IkontrolBaselineCheckService
             $total=(int)$this->db->table($table)->countAllResults();$active=(int)$this->db->table($table)->where('is_active',1)->countAllResults();
             $installed=null;if($this->tableExists('sat_catalog_installations'))$installed=$this->db->table('sat_catalog_installations')->where('catalog_name',$name)->get(1)->getRowArray();
             $declared=$manifest[$name]??null;
-            $status=$total===0?'EMPTY':($installed===null?'UNMANAGED':($declared===null?'UNMANAGED':(($installed['source_checksum']??'')===str_replace('sha256:','',(string)($declared['checksum']??''))&&($installed['row_count']??-1)===$total?'OK':'OUTDATED')));
+            $status = $total === 0
+    ? 'EMPTY'
+    : (
+        $installed === null
+            ? 'UNMANAGED'
+            : (
+                $declared === null
+                    ? 'UNMANAGED'
+                    : (
+                        ($installed['source_checksum'] ?? '') === str_replace(
+                            'sha256:',
+                            '',
+                            (string) ($declared['checksum'] ?? '')
+                        )
+                        && (int) ($installed['row_count'] ?? -1) === $total
+                            ? 'OK'
+                            : 'OUTDATED'
+                    )
+            )
+    );
             if($status==='OK'&&$active===0)$status='PARTIAL';
             $result[$name]=['status'=>$status,'total'=>$total,'active'=>$active,'installed_source_version'=>$installed['source_version']??null,'installed_checksum'=>$installed['source_checksum']??null,'manifest_source_version'=>$declared['source_version']??null,'manifest_checksum'=>$declared['checksum']??null];
         }
