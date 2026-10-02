@@ -6,6 +6,8 @@ namespace App\Controllers\Fiscal;
 
 use App\Controllers\Security_Controller;
 use App\Services\Fiscal\FiscalOnboardingReadinessService;
+use App\Services\Fiscal\FiscalInstanceModeService;
+use App\Services\Fiscal\FiscalReadinessActionService;
 
 final class Onboarding extends Security_Controller
 {
@@ -15,8 +17,12 @@ final class Onboarding extends Security_Controller
             app_redirect('forbidden');
         }
 
+        $status = (new FiscalOnboardingReadinessService())->inspect();
+        $mode = (new FiscalInstanceModeService(null, null, null, static fn (): array => $status))->inspect();
         return $this->template->rander('fiscal/onboarding/index', [
-            'status' => (new FiscalOnboardingReadinessService())->inspect(),
+            'status' => $status,
+            'mode' => $mode,
+            'checklist' => (new FiscalReadinessActionService())->onboardingChecklist($status),
         ]);
     }
 

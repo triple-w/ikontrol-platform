@@ -9,6 +9,8 @@ use App\Services\Fiscal\FiscalDraftSnapshotService;
 use App\Services\Fiscal\FiscalDraftStampingService;
 use App\Services\Fiscal\FiscalPreInvoiceService;
 use App\Services\Fiscal\FiscalReviewPresenter;
+use App\Services\Fiscal\FiscalOnboardingReadinessService;
+use App\Services\Fiscal\FiscalReadinessActionService;
 use App\Services\Fiscal\FiscalInvoiceFlowService;
 use App\Services\Fiscal\FiscalReviewPreparation;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -161,7 +163,15 @@ final class Drafts extends Security_Controller
 
     private function stampMessage(Throwable$e):string{$safe=['El borrador debe editarse y guardarse nuevamente antes de facturarse.','El borrador no está listo para facturarse.','El borrador ya está siendo procesado.','La fecha de expedición ya no es válida.','El emisor no tiene un CSD utilizable.','Una venta relacionada no está disponible para facturación.'];return in_array($e->getMessage(),$safe,true)?$e->getMessage():'No fue posible generar el CFDI. Revisa el borrador e inténtalo nuevamente.';}
     private function formData(?int$id,array$sales):array{return(new FiscalDraftWorkflowService())->formData($id,$sales)+['draft_id'=>$id];}
-    private function review(array$data):array{return(new FiscalReviewPresenter())->present($data,$this->allowed('fiscal.advanced.view'));}
+    private function review(array$data):array
+    {
+        $review=(new FiscalReviewPresenter())->present($data,$this->allowed('fiscal.advanced.view'));
+        $onboarding=(new FiscalOnboardingReadinessService())->inspect();
+        $clientId=(int)($data['sales'][0]['sale']->client_id??0);
+        $review['blocker_groups']=(new FiscalReadinessActionService())->draftBlockerGroups($review['blockers'],$onboarding,$clientId);
+        if($review['blocker_groups'])$review['status']='review_needed';
+        return$review;
+    }
     private function activeDraftForSale(int$saleId):?int{$row=db_connect()->table('fiscal_drafts d')->select('d.id')->join('fiscal_draft_sales a','a.fiscal_draft_id=d.id')->where(['a.sale_id'=>$saleId,'a.allocation_status'=>'reserved','d.data_origin'=>'operational'])->whereIn('d.status',['draft','ready','error'])->orderBy('d.id','DESC')->get(1)->getRow();return$row?(int)$row->id:null;}
     private function defaultReviewInput(array$data,int$saleId):array
     {

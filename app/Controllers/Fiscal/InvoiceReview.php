@@ -20,6 +20,8 @@ use App\Services\Fiscal\Pac\FiscalPacAdapterFactory;
 use App\Domain\Fiscal\Signing\CsdSecretException;
 use App\Services\Fiscal\Signing\CsdOperationalStatusService;
 use App\Services\Fiscal\FiscalInvoiceGenerationService;
+use App\Services\Fiscal\FiscalOnboardingReadinessService;
+use App\Services\Fiscal\FiscalReadinessActionService;
 
 class InvoiceReview extends Security_Controller
 {
@@ -41,7 +43,9 @@ class InvoiceReview extends Security_Controller
   $paymentSuggestion=(new CfdiPaymentRuleService($db))->suggest((int)$invoiceId);
   $csdSummary=['ready'=>false,'label'=>app_lang('csd_certificate_not_ready')];
   if($issuer){$certificate=$db->table('fiscal_issuer_certificates')->where(['issuer_profile_id'=>$issuer->id,'status'=>'valid','deleted'=>0])->orderBy('is_default','DESC')->get(1)->getRow();if($certificate)$csdSummary=(new CsdOperationalStatusService($db))->forCertificate($certificate);}
-  return$this->template->view('fiscal/invoices/review',['review'=>$review,'issuers'=>$issuers,'receivers'=>$receivers,'series_options'=>$series,'simulation'=>$simulation,'simulation_error'=>$simulationError,'can_override'=>$canOverride,'can_apply'=>$this->allowed('fiscal_sales_pricing_apply'),'can_create_draft'=>$this->allowed('fiscal_drafts_create'),'can_generate'=>$this->allowed('fiscal_stamp_sandbox'),'can_view_drafts'=>$this->allowed('fiscal_drafts_view'),'payment_forms'=>$dropdown('sat_payment_forms'),'payment_methods'=>$dropdown('sat_payment_methods'),'payment_suggestion'=>$paymentSuggestion,'currencies'=>$dropdown('sat_currencies'),'drafts'=>(new Fiscal_documents_model())->forInvoice((int)$invoiceId)->getResult(),'csd_summary'=>$csdSummary,'pac_status'=>$this->pacStatusForViewer(),'can_advanced'=>$this->login_user->is_admin]);
+  $onboarding=(new FiscalOnboardingReadinessService($db))->inspect();
+  $blockerGroups=(new FiscalReadinessActionService())->saleBlockerGroups($review,$onboarding,(int)$invoice->client_id);
+  return$this->template->view('fiscal/invoices/review',['review'=>$review,'blocker_groups'=>$blockerGroups,'issuers'=>$issuers,'receivers'=>$receivers,'series_options'=>$series,'simulation'=>$simulation,'simulation_error'=>$simulationError,'can_override'=>$canOverride,'can_apply'=>$this->allowed('fiscal_sales_pricing_apply'),'can_create_draft'=>$this->allowed('fiscal_drafts_create'),'can_generate'=>$this->allowed('fiscal_stamp_sandbox'),'can_view_drafts'=>$this->allowed('fiscal_drafts_view'),'payment_forms'=>$dropdown('sat_payment_forms'),'payment_methods'=>$dropdown('sat_payment_methods'),'payment_suggestion'=>$paymentSuggestion,'currencies'=>$dropdown('sat_currencies'),'drafts'=>(new Fiscal_documents_model())->forInvoice((int)$invoiceId)->getResult(),'csd_summary'=>$csdSummary,'pac_status'=>$this->pacStatusForViewer(),'can_advanced'=>$this->login_user->is_admin]);
  }
  public function apply():void{$invoiceId=(int)$this->request->getPost('invoice_id');$this->guard($invoiceId,'fiscal_sales_pricing_apply');try{$result=(new SaleTaxAdjustmentService())->confirmAndApply((int)$this->request->getPost('preparation_id'),(int)$this->login_user->id,(bool)$this->request->getPost('confirm_adjustment'));echo json_encode(['success'=>true,'message'=>app_lang('fiscal_sale_adjustment_applied'),'data'=>$result]);}catch(\Throwable$e){log_message('warning','Fiscal sale adjustment rejected: {message}',['message'=>$e->getMessage()]);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);}}
  public function create_draft():void{

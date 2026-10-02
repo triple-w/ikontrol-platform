@@ -1,37 +1,44 @@
 <div class="card">
     <div class="page-title clearfix">
-        <h4>Fiscal onboarding</h4>
-        <span class="badge bg-<?php echo $status['ready'] ? 'success' : 'warning'; ?> float-end">
-            <?php echo esc($status['state']); ?>
-        </span>
+        <h4>Configuración fiscal</h4>
+        <?php $modeColor = ($mode['mode'] ?? '') === 'PRODUCTION' ? 'success' : (($mode['mode'] ?? '') === 'DISABLED' ? 'secondary' : 'warning'); ?>
+        <span class="badge bg-<?php echo $modeColor; ?> float-end"><?php echo esc($mode['mode'] ?? $status['state']); ?></span>
     </div>
     <div class="card-body">
-        <?php if ($status['blockers']) { ?>
-            <div class="alert alert-warning">
-                <strong>Stamping: BLOCKED</strong>
-                <ul class="mb-0">
-                    <?php foreach ($status['blockers'] as $blocker) { ?>
-                        <li><?php echo esc($blocker); ?></li>
+        <p class="text-muted">Completa los requisitos en orden. El acceso a configuración permanece disponible durante onboarding; el timbrado continúa bloqueado hasta que readiness sea correcto.</p>
+
+        <?php if ($status['state'] === 'NOT_INSTALLED') { ?>
+            <div class="alert alert-danger">
+                <strong>Infraestructura fiscal pendiente.</strong><br>
+                Faltan tablas fiscales: <?php echo esc(implode(', ', $status['details']['missing_tables'] ?? [])); ?>
+            </div>
+        <?php } else { ?>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead><tr><th>Requisito</th><th>Estado</th><th>Detalle</th><th class="text-end">Acción</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($checklist as $check) { ?>
+                        <tr>
+                            <td><strong><?php echo esc($check['label']); ?></strong></td>
+                            <td><span class="badge bg-<?php echo $check['status'] === 'OK' ? 'success' : 'warning'; ?>"><?php echo esc($check['status']); ?></span></td>
+                            <td><?php echo esc($check['detail']); ?></td>
+                            <td class="text-end">
+                                <?php if ($check['action']) { ?>
+                                    <a class="btn btn-default btn-sm" href="<?php echo get_uri($check['action']['path']); ?>"><?php echo esc($check['action']['label']); ?></a>
+                                <?php } ?>
+                            </td>
+                        </tr>
                     <?php } ?>
-                </ul>
+                    </tbody>
+                </table>
             </div>
         <?php } ?>
-        <?php if ($status['state'] === 'NOT_INSTALLED') { ?>
-            <p>Faltan tablas fiscales: <?php echo esc(implode(', ', $status['details']['missing_tables'] ?? [])); ?></p>
-        <?php } else { ?>
-            <table class="table table-striped">
-                <tbody>
-                    <tr><th>Emisor</th><td><?php echo esc($status['details']['issuer']['status']); ?></td></tr>
-                    <tr><th>CSD</th><td><?php echo esc($status['details']['csd']['status']); ?></td></tr>
-                    <tr><th>Series</th><td><?php echo esc($status['details']['series']['status']); ?></td></tr>
-                    <tr><th>PAC</th><td><?php echo esc($status['details']['pac']['status']); ?></td></tr>
-                    <tr><th>Catálogo SAT productos</th><td><?php echo esc($status['details']['catalogs']['product-service']['status']); ?></td></tr>
-                    <tr><th>Productos incompletos</th><td><?php echo (int) $status['details']['products']['incomplete']; ?></td></tr>
-                    <tr><th>Clientes incompletos</th><td><?php echo (int) $status['details']['clients']['incomplete']; ?></td></tr>
-                    <tr><th>Métodos de pago</th><td><?php echo (int) $status['details']['payment_methods']['mapped']; ?> / <?php echo (int) $status['details']['payment_methods']['available']; ?> mapeados</td></tr>
-                    <tr><th>Timbrado</th><td><?php echo esc($status['details']['stamping']['status']); ?></td></tr>
-                </tbody>
-            </table>
+
+        <?php if (! empty($status['blockers'])) { ?>
+            <div class="alert alert-warning mt15">
+                <strong>Timbrado bloqueado</strong>
+                <ul class="mb0 mt10"><?php foreach ($status['blockers'] as $blocker) { ?><li><?php echo esc($blocker); ?></li><?php } ?></ul>
+            </div>
         <?php } ?>
     </div>
 </div>
