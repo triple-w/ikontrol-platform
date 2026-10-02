@@ -15,7 +15,7 @@ P04 introduce sólo la base estructural y el servicio de borrador para CFDI rela
 | `payment_complement_external_taxes` | Impuestos DR del documento externo; FK al documento externo. |
 | `fiscal_documents.invoice_id` | Se vuelve nullable sin eliminar relaciones ni valores históricos. |
 
-La identidad activa es única por `(payment_complement_id, active_uuid)`. `active_uuid` se genera sólo mientras `deleted = 0`; así la eliminación lógica conserva trazabilidad y permite capturar de nuevo el UUID en un nuevo borrador. Las FKs usan `RESTRICT` para no borrar evidencia fiscal mediante cascada.
+La identidad activa es única por `(payment_complement_id, active_uuid)`. Por compatibilidad comprobada con MariaDB 10.6, `active_uuid` es una columna `CHAR(36) NULL` administrada por `PaymentComplementExternalDocumentService`: contiene el UUID mientras la fila está activa y se libera a `NULL` durante la eliminación lógica. El índice único conserva la misma semántica sin depender de una columna generada incompatible. Las FKs usan `RESTRICT` para no borrar evidencia fiscal mediante cascada.
 
 La migración no se aplicó a Base. El runner MySQL la ejecutó dos veces contra un esquema temporal propio y comprobó que deja vacías las nuevas tablas y no cambia los registros administrativos de fixture.
 

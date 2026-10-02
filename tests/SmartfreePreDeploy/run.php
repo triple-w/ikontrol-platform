@@ -23,7 +23,7 @@ $ok($status['details']['products']['total']>0&&$status['details']['clients']['to
 $ok((int)$db->table('invoices')->countAllResults()===1301&&(int)$db->table('invoice_payments')->countAllResults()===1418,'legacy sales and payments remain unchanged');
 $ok((int)$db->table('payment_methods')->where(['deleted'=>0,'available_on_invoice'=>1])->countAllResults()===4,'four used legacy methods are available for SAT mapping');
 $ok((int)$db->table('fiscal_payment_method_mappings')->countAllResults()===0,'SAT payment mappings are not invented');
-$bridge=(new SmartfreePrefiscalBridgeService($database,'ikontrol20_clean'))->dryRun();$ok(!empty($bridge['already_completed']),'bridge remains idempotent');
+$bridge=(new SmartfreePrefiscalBridgeService($database))->dryRun();$ok(!empty($bridge['already_completed']),'bridge remains idempotent');
 $baseline=(new IkontrolBaselineCheckService($db))->run();$ok(($baseline['summary']['fail']??-1)===1&&($baseline['summary']['warn']??-1)===1,'baseline has only the expected empty SAT failure and bridge migration-history warning');
 $fiscalStructure=array_values(array_filter($baseline['checks'],static fn(array $check):bool=>($check['key']??'')==='fiscal_structure'));$ok(($fiscalStructure[0]['status']??'')==='PASS','fiscal canonical structure is installed for onboarding');
 $source=file_get_contents(APPPATH.'Services/Fiscal/FiscalOnboardingReadinessService.php');$ok(str_contains($source,"\$blockers === [] ? 'READY' : 'ONBOARDING'"),'onboarding can become READY after configuration without reinstalling');

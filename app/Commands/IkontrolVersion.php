@@ -4,22 +4,21 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Services\Instance\InstanceVersionService;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
-use Config\Version;
 
 final class IkontrolVersion extends BaseCommand
 {
     protected $group = 'iKontrol';
     protected $name = 'ikontrol:version';
-    protected $description = 'Muestra la versión canónica de iKontrol.';
+    protected $description = 'Reports installed and canonical iKontrol versions.';
 
-    public function run(array $params): void
+    public function run(array $params): int
     {
-        CLI::write(json_encode([
-            'version' => Version::VERSION,
-            'release_date' => Version::RELEASE_DATE,
-            'release_ref' => Version::RELEASE_REF,
-        ], JSON_UNESCAPED_SLASHES));
+        $service = new InstanceVersionService(db_connect());
+        $payload = ['current_version' => $service->current(), 'canonical_version' => $service->canonical()];
+        CLI::write(in_array('--json', $_SERVER['argv'] ?? [], true) ? json_encode($payload, JSON_UNESCAPED_SLASHES) : print_r($payload, true));
+        return 0;
     }
 }

@@ -45,8 +45,8 @@ Con la aplicación en mantenimiento y variables reemplazadas por valores revisad
 
 ```powershell
 & C:\xampp\mysql\bin\mysqldump.exe -uroot --single-transaction --routines --triggers tws001_smartfree > C:\backups\tws001_smartfree_before_ikontrol.sql
-php spark ikontrol:legacy-upgrade:smartfree --database=tws001_smartfree --template-database=ikontrol20_clean --dry-run --json
-php spark ikontrol:legacy-upgrade:smartfree --database=tws001_smartfree --template-database=ikontrol20_clean --execute --yes --json
+php spark ikontrol:legacy-upgrade:smartfree --database=tws001_smartfree --dry-run --json
+php spark ikontrol:legacy-upgrade:smartfree --database=tws001_smartfree --execute --yes --json
 php spark ikontrol:baseline-check --json
 ```
 

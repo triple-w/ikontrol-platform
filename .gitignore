@@ -12,6 +12,9 @@ writable/debugbar/*
 .DS_Store
 Thumbs.db
 
+# Local legacy database source used only for directed bridge validation.
+docs/tws001_smartfree.sql
+
 .idea/
 .vscode/
 app/ThirdParty/Stripe/vendor/stripe/stripe-php/README.md

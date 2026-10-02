@@ -21,7 +21,10 @@ final class SatCatalogImporterService
 
     public function update(?string $only = null, bool $dryRun = false, bool $force = false): array
     {
+        $infrastructure = (new SatCatalogInfrastructureService($this->db))->inspect();
+        if (! $infrastructure['ready']) throw new RuntimeException('SAT catalog infrastructure is incomplete; run the directed canonical upgrade first.');
         $manifest = $this->manifest();
+        if ($manifest['catalogs'] === []) throw new RuntimeException('SAT catalog manifest has no active catalog artifacts.');
         $results = [];
         foreach ($manifest['catalogs'] as $entry) {
             if ($only !== null && ($entry['catalog_name'] ?? '') !== $only) continue;
@@ -95,8 +98,8 @@ final class SatCatalogImporterService
             'units' => ['item_fiscal_settings', 'sat_unit_key_id'],
             'tax-codes' => ['taxes', 'sat_tax_code_id'],
             'tax-factor-types' => ['taxes', 'factor_type_id'],
-            'cfdi-uses' => ['fiscal_customer_profiles', 'default_cfdi_use_id'],
-            'tax-regimes' => ['fiscal_customer_profiles', 'tax_regime_id'],
+            'cfdi-uses' => ['fiscal_profiles', 'default_cfdi_use_id'],
+            'tax-regimes' => ['fiscal_profiles', 'tax_regime_id'],
             'tax-object-codes' => ['item_fiscal_settings', 'tax_object_code_id'],
         ];
         if (! isset($references[$catalog])) return 0;

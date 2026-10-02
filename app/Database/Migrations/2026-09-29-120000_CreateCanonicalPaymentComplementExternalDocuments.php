@@ -46,7 +46,7 @@ final class CreateCanonicalPaymentComplementExternalDocuments extends Migration
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 deleted TINYINT(1) NOT NULL DEFAULT 0,
-                active_uuid CHAR(36) GENERATED ALWAYS AS (IF(deleted=0, uuid, NULL)) STORED,
+                active_uuid CHAR(36) NULL,
                 PRIMARY KEY (id),
                 KEY idx_pc_external_complement_active (payment_complement_id, deleted),
                 KEY idx_pc_external_payment_active (payment_complement_payment_id, deleted),

@@ -13,7 +13,7 @@ Esta guía instala una instancia nueva de iKontrol. No use este procedimiento pa
    'una-contraseña-larga' | php spark ikontrol:install-canonical --group default --expected-database NOMBRE_BD --admin-name 'Administrador Inicial' --admin-email admin@example.test --allow-empty-install
    ```
 
-   El comando rechaza otro destino, un prefijo distinto y una base con tablas. Importa el baseline RISE incluido, registra cada migración en orden y siembra sólo los catálogos SAT mínimos.
+   El comando rechaza otro destino, un prefijo distinto y una base con tablas. Importa el baseline RISE incluido, registra el schema canónico, instala la infraestructura SAT e importa los diez artefactos verificados del manifest. Si faltan archivos, checksum o conteos, la instalación falla cerrada.
 5. Complete empresa, perfiles fiscales, impuestos comerciales, métodos de pago, cuentas financieras y series antes de operar. Cargue CSD y habilite el ambiente fiscal sólo después de comprobar sandbox.
 6. Ejecute `php tests/CleanInstallCanonical/run.php` contra un grupo `clean_build` que apunte a la nueva base.
 
@@ -23,7 +23,7 @@ El baseline incluye un administrador inicial, roles/permisos RISE, compañía va
 
 ## Migraciones y actualizaciones
 
-`ikontrol:install-canonical` es exclusivo para bases vacías. Ejecuta la cadena completa porque los DML históricos son inertes tras verificar ausencia de datos. No use `php spark migrate` ni `db:build-clean` para una instancia existente.
+`ikontrol:install-canonical` es exclusivo para bases vacías. Ejecuta la cadena completa porque los DML históricos son inertes tras verificar ausencia de datos. No use `php spark migrate` ni `db:build-clean` para una instancia existente. Para una baseline 1.0.0 use primero `php spark ikontrol:upgrade:plan --target=1.1.0 --json` y después el upgrade dirigido con backup probado.
 
 Para actualizar una instancia existente, haga backup probado y siga el ledger P02: inspeccione schema y datos, aplique sólo migraciones aditivas/correctivas mediante runner dirigido y valide cada postcondición. `CanonicalizeAdministrativePayments`, `ApplyAdministrativePaymentsToSales` y `PreparePaymentComplementDraftsFromAllocations` son antecedentes de instalación, nunca un paso automático de actualización; contienen reconciliación, vaciado o truncado de datos.
 

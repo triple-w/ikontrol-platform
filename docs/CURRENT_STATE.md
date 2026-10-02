@@ -1,5 +1,7 @@
 # Estado actual
 
+> Candidato 1.1.0 (2026-10-01): el bridge Smartfree autocontenido, el actualizador dirigido, los modos fiscales y los feature flags ya estan implementados y validados localmente. La liberacion permanece bloqueada hasta incorporar y verificar los diez CSV SAT oficiales con su manifest y checksums; v1.0.0 sigue siendo la ultima version liberada.
+
 > P15 (2026-10-01): iKontrol v1.0.0 está liberado en el tag `v1.0.0`. La instalación canónica, onboarding y actualización dirigida están documentados.
 
 Revisión: 2026-10-01. Rama canónica: `main`. iKontrol v1.0.0 liberado.

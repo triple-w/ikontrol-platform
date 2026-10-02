@@ -53,12 +53,14 @@ final class PaymentComplementExternalDocumentService
                 throw new InvalidArgumentException('Los documentos relacionados exceden el pago administrativo real.');
             }
             $taxes = $data['taxes']; unset($data['taxes']);
+            // MariaDB 10.6 rejects the former generated-column expression on
+            // some installations. Keep the same uniqueness contract explicitly.
+            $data['active_uuid'] = $data['uuid'];
             $now = gmdate('Y-m-d H:i:s');
             if ($id > 0) {
                 $this->db->table(self::DOCUMENTS)->where('id', $id)->update($data + ['updated_at' => $now]);
                 $this->db->table(self::TAXES)->where('external_document_id', $id)->delete();
             } else {
-                if ($this->db->DBDriver !== 'MySQLi') $data['active_uuid'] = $data['uuid'];
                 $this->db->table(self::DOCUMENTS)->insert($data + [
                     'payment_complement_id' => $complementId, 'payment_complement_payment_id' => $context->payment_id,
                     'created_by' => $actor, 'created_at' => $now, 'updated_at' => $now, 'deleted' => 0,
@@ -83,9 +85,8 @@ final class PaymentComplementExternalDocumentService
         try {
             $this->editableContext($complementId);
             $this->get($complementId, $id);
-            // active_uuid is generated from deleted, so a later same-UUID draft is valid.
-            $change = ['deleted' => 1, 'updated_at' => gmdate('Y-m-d H:i:s')];
-            if ($this->db->DBDriver !== 'MySQLi') $change['active_uuid'] = null;
+            // Releasing active_uuid preserves the active-row unique contract.
+            $change = ['deleted' => 1, 'active_uuid' => null, 'updated_at' => gmdate('Y-m-d H:i:s')];
             $this->db->table(self::DOCUMENTS)->where('id', $id)->update($change);
             $this->syncTotals($complementId, (int)$this->editableContext($complementId)->payment_id);
             if (! $this->db->transStatus()) throw new RuntimeException('No fue posible retirar el CFDI externo.');

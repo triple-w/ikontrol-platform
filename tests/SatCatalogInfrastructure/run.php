@@ -9,6 +9,7 @@ use CodeIgniter\Database\Config as DbConfig;
 
 $db = DbConfig::connect(['DBDriver'=>'SQLite3','database'=>':memory:','DBPrefix'=>'','DBDebug'=>true], false);
 $db->query('CREATE TABLE sat_product_service_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, description TEXT, normalized_description TEXT, valid_from TEXT NULL, valid_to TEXT NULL, is_active INTEGER, created_at TEXT, updated_at TEXT)');
+$db->query('CREATE TABLE sat_unit_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, name TEXT, description TEXT, normalized_description TEXT, is_active INTEGER)');
 $db->query('CREATE TABLE sat_catalog_installations (id INTEGER PRIMARY KEY AUTOINCREMENT, catalog_name TEXT UNIQUE, source TEXT, source_version TEXT, source_checksum TEXT, source_generated_at TEXT NULL, installed_at TEXT, row_count INTEGER, active_row_count INTEGER, metadata_json TEXT NULL, created_at TEXT, updated_at TEXT)');
 $db->query('CREATE TABLE item_fiscal_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, sat_product_service_key_id INTEGER)');
 $db->query("INSERT INTO sat_product_service_keys (id,code,description,normalized_description,is_active) VALUES (35,'43211503','Descripcion vieja','descripcion vieja',1)");

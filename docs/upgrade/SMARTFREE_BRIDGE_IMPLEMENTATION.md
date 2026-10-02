@@ -5,24 +5,26 @@
 ## Commands
 
 ```powershell
-php spark ikontrol:legacy-upgrade:smartfree --database=<local_copy> --template-database=ikontrol20_clean --dry-run --json
-php spark ikontrol:legacy-upgrade:smartfree --database=<local_copy> --template-database=ikontrol20_clean --execute --yes --json
+php spark ikontrol:legacy-upgrade:smartfree --database=<local_copy> --dry-run --json
+php spark ikontrol:legacy-upgrade:smartfree --database=<local_copy> --execute --yes --json
 ```
 
 `--database` is mandatory. `--execute` additionally requires `--yes`. Use a restored local dump only. The configured production database, remote hosts, DOLD and the original dump are out of scope.
 
 ## Steps
 
-- **B000** reads the fingerprint, dynamic prefix, counts, monetary types, sums and approved orphan counts. It aborts for a profile mismatch.
+- **B000** reads the structural fingerprint, dynamic prefix, current counts, monetary types, sums and approved orphan counts. Business counts are observations, not frozen requirements, so continued legacy operation does not invalidate the bridge.
 - **B010** creates `app_schema_versions`, `legacy_bridge_runs`, and `legacy_bridge_steps`.
-- **B020–B040** add nullable administrative columns from the canonical local template, gate DOUBLE-to-DECIMAL conversion at `0.0000005`, and map invoice lifecycle conservatively.
-- **B050/B080** add missing fiscal, SAT, supplier and warehouse structures without FKs. Fiscal remains disabled and no historical CFDI, RFC, SAT identity, inventory or supplier history is invented.
+- **B020–B040** add 41 explicitly versioned nullable administrative columns, gate DOUBLE-to-DECIMAL conversion at `0.0000005`, and map invoice lifecycle conservatively.
+- **B050/B080** apply the repository-owned `schema/ikontrol-1.0.0-fiscal.sql` and `schema/ikontrol-1.0.0-logistics.sql` resources. No external template database is opened. Post-DDL validation queries `information_schema` directly to avoid CodeIgniter metadata cache. Fiscal enters onboarding and no historical CFDI, RFC, SAT identity, inventory or supplier history is invented.
 - **B060/B070** create four technical MXN accounts, map methods 1/6/7/8, create one idempotent incoming movement for each positive active payment, and allocate only against an existing invoice balance.
 - **B090–B110** preserve settings/roles, deny platform superadmin, record the constraint decision, and mark `ikontrol-1.0.0` only after the before/after legacy snapshot matches.
 
 ## Preserved anomalies
 
 The bridge preserves all orphan invoice items and payments, including deleted and non-positive payments. Orphan payments receive no allocation, client, invoice or invented parent. Non-positive payments receive no financial movement. Payment allocations are capped by each non-negative invoice balance; any payment remainder remains unallocated.
+
+The embedded fiscal schema includes `sale_fiscal_pricing_preparations`, `sat_catalog_installations`, and normalized SAT description columns. For MariaDB 10.6, payment-complement `active_uuid` is a nullable physical column maintained by the service; it is not a generated column.
 
 ## Checkpoints and recovery
 

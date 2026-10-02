@@ -7,6 +7,11 @@ namespace App\Services\Database;
 use CodeIgniter\Config\Services;
 use CodeIgniter\Database\BaseConnection;
 use Config\Migrations;
+use App\Services\Fiscal\SatCatalogImporterService;
+use App\Services\Fiscal\SatCatalogInfrastructureService;
+use App\Services\Instance\InstanceFeaturesService;
+use App\Services\Instance\InstanceIdentityService;
+use App\Services\Instance\InstanceVersionService;
 use RuntimeException;
 
 /**
@@ -32,11 +37,19 @@ final class CanonicalCleanInstallService
         $this->importRiseBaseline($db, $admin);
         $migrations = $this->applyCanonicalMigrations($db, $group);
         $seeded = (new ExplicitConnectionSeederOrchestrator())->runSatCatalogs($db, $expectedDatabase);
+        (new SatCatalogInfrastructureService($db))->apply();
+        $catalogs = (new SatCatalogImporterService($db))->update();
+        $features = (new InstanceFeaturesService($db))->ensureDefaults();
+        $instanceUuid = (new InstanceIdentityService($db))->ensure();
+        (new InstanceVersionService($db))->record('1.1.0', 'Canonical clean installation');
 
         return [
             'database' => $expectedDatabase,
             'migrations' => $migrations,
             'seeders' => array_column($seeded, 'seeder'),
+            'catalogs' => array_column($catalogs['catalogs'], 'catalog_name'),
+            'features' => $features['features'],
+            'instance_uuid' => $instanceUuid,
             'admin_email' => $admin['email'],
         ];
     }
