@@ -21,12 +21,12 @@ final class CsdOperationalStatusService
 
     public function forCertificate(object $certificate): array
     {
-        if ((string) $certificate->status !== 'valid') {
-            return $this->result(false, 'certificate_not_ready', 'Requiere reconfiguración.');
-        }
         $now = gmdate('Y-m-d H:i:s');
-        if ((string) $certificate->valid_from > $now || (string) $certificate->valid_to < $now) {
+        if ((string) $certificate->status === 'expired' || (string) $certificate->valid_to < $now) {
             return $this->result(false, 'certificate_expired', 'Certificado vencido.');
+        }
+        if ((string) $certificate->status !== 'valid' || (string) $certificate->valid_from > $now) {
+            return $this->result(false, 'certificate_not_ready', 'Requiere reconfiguración.');
         }
         try {
             (new CsdCertificateService($this->db, $this->certificateRoot))

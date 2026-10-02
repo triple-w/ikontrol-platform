@@ -22,6 +22,8 @@ use App\Services\Fiscal\Signing\CsdOperationalStatusService;
 use App\Services\Fiscal\FiscalInvoiceGenerationService;
 use App\Services\Fiscal\FiscalOnboardingReadinessService;
 use App\Services\Fiscal\FiscalReadinessActionService;
+use App\Services\Fiscal\FiscalIssuerResolver;
+use App\Services\Fiscal\FiscalRuntimeContext;
 
 class InvoiceReview extends Security_Controller
 {
@@ -34,15 +36,15 @@ class InvoiceReview extends Security_Controller
   $seriesId=(int)($this->request->getPost('series_id')?:$this->request->getGet('series_id'));
   $receiverId=(int)($this->request->getPost('receiver_profile_id')?:$this->request->getGet('receiver_profile_id'));
   $review=(new SaleFiscalReadinessService())->review((int)$invoiceId,$issuerId?:null,$seriesId?:null,$receiverId?:null);
-  $profiles=new Fiscal_profiles_model();$issuers=[];foreach($profiles->activeIssuers()->getResult()as$p)$issuers[$p->id]=$p->legal_name.' · '.$p->rfc;
-  $invoice=$db->table('invoices')->where('id',$invoiceId)->get(1)->getRow();$receivers=[];foreach($profiles->forClient((int)$invoice->client_id)->getResult()as$p)if($p->status!=='inactive')$receivers[$p->id]=$p->legal_name.' · '.$p->rfc;
+  $profiles=new Fiscal_profiles_model();$invoice=$db->table('invoices')->where('id',$invoiceId)->get(1)->getRow();
+  $issuers=[];$environment=FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));foreach((new FiscalIssuerResolver($db))->candidates($invoice->company_id?(int)$invoice->company_id:null,$environment)as$p)$issuers[$p->id]=$p->legal_name.' · '.$p->rfc;
+  $receivers=[];foreach($profiles->forClient((int)$invoice->client_id)->getResult()as$p)if($p->status!=='inactive')$receivers[$p->id]=$p->legal_name.' · '.$p->rfc;
   $series=[];if($review['issuer']['issuer_profile_id'])foreach((new Fiscal_series_model())->activeForIssuer((int)$review['issuer']['issuer_profile_id'],'ingreso')->getResult()as$s)$series[$s->id]=($s->series?:app_lang('without_series')).' · '.app_lang('next_folio').' '.max((int)$s->initial_folio,(int)$s->current_folio+1);
   $simulation=null;$simulationError=null;$issuer=$review['issuer']['profile']??null;$override=(string)$this->request->getPost('pricing_mode_override');$canOverride=$this->allowed('fiscal_sales_pricing_override')&&$issuer&&$issuer->allow_sale_tax_pricing_override;if(!$canOverride)$override='';
   if($issuer&&$review['issuer']['is_ready'])try{$simulation=(new SaleTaxPricingSimulationService())->simulate((int)$invoiceId,(int)$issuer->id,$review['receiver']['profile_id']?:null,$review['series']['series_id']?:null,$override?:null,(int)$this->login_user->id,true);}catch(\Throwable$e){$simulationError=$e->getMessage();}
   $dropdown=function(string$table)use($db):array{$out=[];foreach($db->table($table)->where('is_active',1)->orderBy('code')->get()->getResult()as$r)$out[$r->code]=$r->code.' · '.$r->name;return$out;};
   $paymentSuggestion=(new CfdiPaymentRuleService($db))->suggest((int)$invoiceId);
-  $csdSummary=['ready'=>false,'label'=>app_lang('csd_certificate_not_ready')];
-  if($issuer){$certificate=$db->table('fiscal_issuer_certificates')->where(['issuer_profile_id'=>$issuer->id,'status'=>'valid','deleted'=>0])->orderBy('is_default','DESC')->get(1)->getRow();if($certificate)$csdSummary=(new CsdOperationalStatusService($db))->forCertificate($certificate);}
+  $csdSummary=$review['csd'];
   $onboarding=(new FiscalOnboardingReadinessService($db))->inspect();
   $blockerGroups=(new FiscalReadinessActionService())->saleBlockerGroups($review,$onboarding,(int)$invoice->client_id);
   return$this->template->view('fiscal/invoices/review',['review'=>$review,'blocker_groups'=>$blockerGroups,'issuers'=>$issuers,'receivers'=>$receivers,'series_options'=>$series,'simulation'=>$simulation,'simulation_error'=>$simulationError,'can_override'=>$canOverride,'can_apply'=>$this->allowed('fiscal_sales_pricing_apply'),'can_create_draft'=>$this->allowed('fiscal_drafts_create'),'can_generate'=>$this->allowed('fiscal_stamp_sandbox'),'can_view_drafts'=>$this->allowed('fiscal_drafts_view'),'payment_forms'=>$dropdown('sat_payment_forms'),'payment_methods'=>$dropdown('sat_payment_methods'),'payment_suggestion'=>$paymentSuggestion,'currencies'=>$dropdown('sat_currencies'),'drafts'=>(new Fiscal_documents_model())->forInvoice((int)$invoiceId)->getResult(),'csd_summary'=>$csdSummary,'pac_status'=>$this->pacStatusForViewer(),'can_advanced'=>$this->login_user->is_admin]);

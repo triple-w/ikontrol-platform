@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\Services\Fiscal;
 
-use App\Models\Fiscal\Fiscal_issuer_certificates_model;
 use App\Services\Fiscal\Signing\CsdCertificateSecretService;
 use RuntimeException;
 use Throwable;
@@ -90,9 +89,23 @@ final class CsdCertificateService
             $existing = $this->db->table('fiscal_issuer_certificates')->where([
                 'issuer_profile_id' => $issuerProfileId,
                 'certificate_sha256' => hash('sha256', $certificate['der']),
+                'deleted' => 0,
             ])->get(1)->getRow();
+            $reconfigureExisting = false;
             if ($existing) {
-                throw new RuntimeException('Este certificado ya fue registrado para el emisor.');
+                if (in_array((string) $existing->status, ['inactive', 'revoked_internal'], true)) {
+                    throw new RuntimeException('El certificado existente está desactivado o revocado y no puede reactivarse mediante una recarga.');
+                }
+                try {
+                    $this->certificateMaterial($existing);
+                    $materialAvailable = true;
+                } catch (Throwable) {
+                    $materialAvailable = false;
+                }
+                if ($materialAvailable) {
+                    throw new RuntimeException('Este certificado ya fue registrado para el emisor y sus archivos privados están disponibles.');
+                }
+                $reconfigureExisting = true;
             }
             if ($makeDefault && $status === 'valid') {
                 $this->db->table('fiscal_issuer_certificates')->where([
@@ -119,18 +132,37 @@ final class CsdCertificateService
                 'updated_at' => get_current_utc_time(),
                 'deleted' => 0,
             ];
-            $id = (new Fiscal_issuer_certificates_model())->ci_save($data);
+            if ($reconfigureExisting) {
+                unset($data['created_by'], $data['created_at']);
+                $this->db->table('fiscal_issuer_certificates')->where('id', $existing->id)->update($data);
+                $id = (int) $existing->id;
+                $action = 'reconfigured';
+            } else {
+                $this->db->table('fiscal_issuer_certificates')->insert($data);
+                $id = (int) $this->db->insertID();
+                $action = 'created';
+            }
             if (!$id || !$this->db->transStatus()) {
                 throw new RuntimeException('No fue posible registrar el certificado.');
             }
             ($this->secretService ?? new CsdCertificateSecretService($this->db, null, $this->root))
                 ->configure((int) $id, $password, $userId, true, false);
+            if ($action === 'reconfigured' && $this->db->tableExists('fiscal_issuer_certificate_secret_audit')) {
+                $this->db->table('fiscal_issuer_certificate_secret_audit')->insert([
+                    'fiscal_issuer_certificate_id' => $id,
+                    'user_id' => $userId ?: null,
+                    'action' => 'csd_private_material_reloaded',
+                    'result' => 'success',
+                    'error_code' => null,
+                    'created_at' => get_current_utc_time(),
+                ]);
+            }
             if (!$this->db->transStatus()) {
                 throw new RuntimeException('No fue posible proteger la contraseña del certificado.');
             }
             $this->db->transCommit();
             $data['id'] = (int) $id;
-            return ['certificate' => (object) $data, 'status' => $status, 'validity_checked_locally' => true];
+            return ['certificate' => (object) $data, 'status' => $status, 'action' => $action, 'validity_checked_locally' => true];
         } catch (Throwable $e) {
             $this->db->transRollback();
             @unlink($certTarget);

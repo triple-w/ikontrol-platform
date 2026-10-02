@@ -14,10 +14,10 @@ if(!in_array((string)$local['hostname'],['localhost','127.0.0.1','::1'],true))th
 mysqli_report(MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT);$admin=new mysqli($local['hostname'],$local['username'],$local['password'],'',(int)$local['port']);$owned='ikontrol_test_fiscal_ux_'.bin2hex(random_bytes(5));$admin->query('CREATE DATABASE `'.$owned.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci');
 $db=Database::connect(array_replace($local,['DSN'=>'','database'=>$owned,'DBPrefix'=>'','pConnect'=>false,'DBDebug'=>true,'failover'=>[]]),false);
 register_shutdown_function(static function()use($admin,$owned):void{$admin->query('DROP DATABASE IF EXISTS `'.str_replace('`','``',$owned).'`');$admin->close();});
-$db->query('CREATE TABLE fiscal_profiles (id INTEGER PRIMARY KEY, profile_type TEXT, company_id INTEGER NULL, environment TEXT, status TEXT)');
-$db->query("INSERT INTO fiscal_profiles VALUES (1,'issuer',1,'development','incomplete')");
-$db->query("INSERT INTO fiscal_profiles VALUES (2,'issuer',1,'development','ready')");
-$db->query("INSERT INTO fiscal_profiles VALUES (3,'issuer',1,'production','ready')");
+$db->query('CREATE TABLE fiscal_profiles (id INTEGER PRIMARY KEY, profile_type TEXT, company_id INTEGER NULL, environment TEXT, status TEXT, is_default INTEGER, valid_from DATE NULL, valid_to DATE NULL)');
+$db->query("INSERT INTO fiscal_profiles VALUES (1,'issuer',1,'development','incomplete',0,NULL,NULL)");
+$db->query("INSERT INTO fiscal_profiles VALUES (2,'issuer',1,'development','ready',0,NULL,NULL)");
+$db->query("INSERT INTO fiscal_profiles VALUES (3,'issuer',1,'production','ready',0,NULL,NULL)");
 $fiscal = (object) ['environment' => 'development'];
 $evaluator = static fn (int $id): array => ['is_ready' => $id === 2, 'errors' => $id === 2 ? [] : ['Falta RFC del emisor.']];
 $validator = new FiscalSeriesIssuerValidator($db, $evaluator, $fiscal);

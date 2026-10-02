@@ -40,16 +40,23 @@ final class Certificates extends Security_Controller
             $actions = '';
             $operational = $statusService->forCertificate($certificate);
             if ($this->allowed(true) && !in_array($certificate->status, ['inactive', 'revoked_internal'], true)) {
-                $actions = modal_anchor(
-                    get_uri('fiscal/certificates/secret/form'),
-                    '<i data-feather="key" class="icon-16"></i>',
-                    [
-                        'title' => $operational['ready']
-                            ? app_lang('update_csd_password')
-                            : app_lang('configure_csd_password'),
-                        'data-post-certificate_id' => $certificate->id,
-                    ]
-                );
+                if (in_array($operational['code'], ['private_files_unavailable', 'certificate_expired'], true)) {
+                    $actions = modal_anchor(get_uri('fiscal/certificates/form'), '<i data-feather="upload" class="icon-16"></i>', [
+                        'title' => $operational['code'] === 'private_files_unavailable' ? app_lang('reload_csd') : app_lang('upload_csd'),
+                        'data-post-issuer_profile_id' => $issuerId,
+                    ]);
+                } else {
+                    $actions = modal_anchor(
+                        get_uri('fiscal/certificates/secret/form'),
+                        '<i data-feather="key" class="icon-16"></i>',
+                        [
+                            'title' => $operational['ready']
+                                ? app_lang('update_csd_password')
+                                : app_lang('configure_csd_password'),
+                            'data-post-certificate_id' => $certificate->id,
+                        ]
+                    );
+                }
                 $actions .= js_anchor('<i data-feather="x" class="icon-16"></i>', [
                     'title' => app_lang('deactivate'), 'class' => 'delete',
                     'data-action-url' => get_uri('fiscal/certificates/deactivate'),
@@ -63,6 +70,7 @@ final class Certificates extends Security_Controller
                 format_to_datetime($certificate->valid_from),
                 format_to_datetime($certificate->valid_to),
                 app_lang('csd_status_' . $certificate->status),
+                app_lang($operational['ready'] ? 'csd_operational_ready' : 'csd_operational_blocked'),
                 htmlspecialchars($operational['label']),
                 $certificate->is_default ? app_lang('yes') : app_lang('no'),
                 $actions,
@@ -104,7 +112,7 @@ final class Certificates extends Security_Controller
             );
             echo json_encode([
                 'success' => true,
-                'message' => app_lang('csd_uploaded') . ' ' . app_lang('csd_local_validity_notice'),
+                'message' => app_lang(($result['action'] ?? 'created') === 'reconfigured' ? 'csd_reconfigured' : 'csd_uploaded') . ' ' . app_lang('csd_local_validity_notice'),
                 'data' => ['id' => $result['certificate']->id, 'status' => $result['status']],
             ]);
         } catch (\Throwable $e) {

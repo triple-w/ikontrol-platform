@@ -44,6 +44,7 @@ final class FiscalReviewPresenter
         $clientComplete = !$this->hasSection($errors, 'receiver');
         $productsComplete = $snapshot!==null && !$this->hasSection($errors, 'concepts');
         $issuerReady = !$this->hasSection($errors, 'issuer');
+        $csdReady = !$this->hasSection($errors, 'csd');
         $totalsValid = $snapshot!==null && !$this->hasCode($errors, ['CONCEPT_TOTAL_MISMATCH','CONCEPT_TOTAL_INVALID','TAX_AMOUNT_MISMATCH']);
         $totals = $snapshot['totals'] ?? [
             'subtotal'=>(string)($draft->subtotal??'0'),'discount'=>(string)($draft->discount??'0'),
@@ -65,7 +66,7 @@ final class FiscalReviewPresenter
                 'transferred_taxes'=>(string)$totals['transferred'],'withheld_taxes'=>(string)$totals['withheld'],
                 'total'=>(string)$totals['total'],
             ],
-            'checks'=>['client_complete'=>$clientComplete,'products_complete'=>$productsComplete,'issuer_ready'=>$issuerReady,'totals_valid'=>$totalsValid],
+            'checks'=>['client_complete'=>$clientComplete,'products_complete'=>$productsComplete,'issuer_ready'=>$issuerReady,'csd_ready'=>$csdReady,'totals_valid'=>$totalsValid],
             'blockers'=>$blockers,
             'products'=>$this->products($items, $workflowData),
             'advanced'=>$advanced?[
@@ -94,7 +95,7 @@ final class FiscalReviewPresenter
         elseif($field==='tax_regime_id')$message='El cliente necesita completar su régimen fiscal.';
         elseif($field==='rfc')$message='El cliente necesita completar su RFC.';
         elseif($field==='total')$message='El total fiscal no coincide con el total de la venta.';
-        return['field'=>$field,'section'=>$section,'message'=>$message,'action'=>$section==='receiver'?'Completar datos del cliente':($section==='concepts'?'Corregir':'Revisar')];
+        return['field'=>$field,'section'=>$section,'message'=>$message,'action'=>$section==='receiver'?'Completar datos del cliente':($section==='concepts'?'Corregir':($section==='csd'?'Configurar CSD':'Revisar'))];
     }
 
     private function products(array $items,array$data):array
@@ -106,7 +107,7 @@ final class FiscalReviewPresenter
     private static function taxLabel(array$taxes):string{foreach($taxes as$tax)if(($tax['tax_type']??'')==='transfer'&&($tax['factor_type']??'')==='Tasa')return'IVA '.rtrim(rtrim(number_format((float)$tax['rate_or_quota']*100,2,'.',''),'0'),'.').'%';return$taxes?'Impuestos configurados':'Sin impuesto';}
     private function configurationErrorsFromSources(array$data):array
     {
-        $errors=[];if(empty($data['issuer']))$errors[]=['field'=>'issuer_id','code'=>'ISSUER_REQUIRED','message'=>'No hay un emisor disponible.','section'=>'issuer'];
+        $errors=[];if(empty($data['issuer']))$errors[]=['field'=>'issuer_id','code'=>'ISSUER_REQUIRED','message'=>'No hay un emisor disponible.','section'=>'issuer'];else{$csd=(new FiscalCsdReadinessService($this->db))->inspect($data['issuer']);if(!$csd['ready'])$errors[]=['field'=>'certificate','code'=>$csd['code'],'message'=>$csd['label'],'section'=>'csd'];}
         $receiver=$data['receiver']??null;if(!$receiver)$errors[]=['field'=>'receiver_profile_id','code'=>'RECEIVER_REQUIRED','message'=>'El cliente necesita completar sus datos fiscales.','section'=>'receiver'];
         else foreach(['rfc'=>'RFC','legal_name'=>'razón social','tax_regime_id'=>'régimen fiscal','fiscal_postal_code'=>'código postal fiscal']as$field=>$label)if(trim((string)($receiver->{$field}??''))===''||(str_ends_with($field,'_id')&&(int)$receiver->{$field}<1))$errors[]=['field'=>$field,'code'=>'RECEIVER_FIELD_REQUIRED','message'=>"El cliente necesita completar su {$label}.",'section'=>'receiver'];
         $resolver=new ProductFiscalConfigurationResolver($this->db);foreach(($data['sales']??[])as$entry)foreach($entry['items']as$item){$effective=(new InvoiceItemFiscalOverrideService($this->db))->effective((int)$item->id);$resolved=!empty($effective['ready'])?$effective:$resolver->resolve((int)$item->item_id);if(empty($resolved['ready']))$errors[]=['field'=>'product_configuration','code'=>$resolved['source']==='manual_line'?'MANUAL_LINE_FISCAL_REQUIRED':'PRODUCT_FISCAL_CONFIGURATION_REQUIRED','message'=>$resolved['source']==='manual_line'?'Esta partida fue capturada como concepto libre y necesita datos fiscales antes de facturar.':trim((string)$item->title).': falta '.implode(', ',$resolved['missing']).'.','section'=>'concepts'];}return$errors;

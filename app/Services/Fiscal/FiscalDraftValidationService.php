@@ -19,18 +19,19 @@ final class FiscalDraftValidationService
         $add = static function (array &$target, string $field, string $code, string $message, string $section): void {
             $target[] = compact('field','code','message','section');
         };
-        $issuer = $this->db->table('fiscal_profiles')->where([
-            'id' => (int) ($draft['issuer_id'] ?? 0), 'profile_type' => 'issuer',
-        ])->whereIn('status',['active','ready'])->get(1)->getRow();
+        $environment = FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));
+        $issuerId = (int) ($draft['issuer_id'] ?? 0);
+        $issuer = $issuerId > 0
+            ? (new FiscalIssuerResolver($this->db))->resolveById($issuerId, null, $environment)
+            : null;
         if (!$issuer) $add($errors,'issuer_id','ISSUER_REQUIRED','Selecciona un emisor fiscal activo.','issuer');
         if ($issuer) {
-            foreach (['rfc'=>'RFC','legal_name'=>'razón social','tax_regime_id'=>'régimen fiscal','expedition_postal_code'=>'código postal de expedición'] as $field=>$label) {
-                if (trim((string) ($issuer->{$field} ?? '')) === '') $add($errors,$field,'ISSUER_FIELD_REQUIRED',"Falta {$label} del emisor.",'issuer');
+            $issuerReadiness = (new IssuerFiscalReadinessService($this->db))->evaluate((int) $issuer->id, isset($issuer->company_id) ? (int) $issuer->company_id : null);
+            foreach ($issuerReadiness['errors'] as $message) {
+                $add($errors,'issuer_id','ISSUER_INCOMPLETE',(string) $message,'issuer');
             }
-            $certificate = $this->db->table('fiscal_issuer_certificates')->where([
-                'issuer_profile_id' => (int) $issuer->id, 'deleted' => 0,
-            ])->whereIn('status',['active','valid'])->where('valid_from <=', date('Y-m-d H:i:s'))->where('valid_to >=', date('Y-m-d H:i:s'))->get(1)->getRow();
-            if (!$certificate) $add($errors,'certificate','CSD_NOT_USABLE','El emisor no tiene un CSD vigente y utilizable.','issuer');
+            $csd = (new FiscalCsdReadinessService($this->db))->inspect($issuer);
+            if (!$csd['ready']) $add($errors,'certificate',(string)$csd['code'],(string)$csd['label'],'csd');
         }
         $receiver = $this->db->table('fiscal_profiles')->where([
             'id' => (int) ($draft['receiver_profile_id'] ?? 0), 'profile_type' => 'receiver',

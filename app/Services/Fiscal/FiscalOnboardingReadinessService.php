@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Fiscal;
 
 use App\Services\Baseline\IkontrolBaselineCheckService;
-use App\Services\Fiscal\Signing\CsdOperationalStatusService;
 use RuntimeException;
-use Throwable;
 
 final class FiscalOnboardingReadinessService
 {
@@ -58,16 +56,12 @@ final class FiscalOnboardingReadinessService
         // Issuer identity and CSD readiness are separate onboarding requirements.
         // A migrated valid candidate may legitimately lack historical default flags.
         $issuerResolver = new FiscalIssuerResolver($this->db);
-        $issuer = $issuerResolver->profileCandidates(null, $environment)[0] ?? null;
-        $csd = ['ready' => false, 'label' => 'MISSING'];
-        foreach ($issuer ? $issuerResolver->certificateCandidates((int)$issuer->id) : [] as $certificate) {
-            try {
-                $csd = (new CsdOperationalStatusService($this->db))->forCertificate($certificate);
-                if (!empty($csd['ready'])) break;
-            } catch (Throwable) {
-                // A malformed or unreadable certificate is reported as not ready.
-            }
-        }
+        $issuer = $issuerResolver->resolve(null, $environment);
+        $issuerReadiness = (new IssuerFiscalReadinessService($this->db))->evaluate(
+            isset($issuer->id) ? (int) $issuer->id : null,
+            isset($issuer->company_id) && $issuer->company_id !== null ? (int) $issuer->company_id : null
+        );
+        $csd = (new FiscalCsdReadinessService($this->db))->inspect($issuer);
         $series = $issuer
             ? (int) $this->db->table('fiscal_series')
                 ->where([
@@ -110,11 +104,11 @@ final class FiscalOnboardingReadinessService
         if (empty($this->fiscal->enabled)) {
             $blockers[] = 'Fiscal no está habilitado para onboarding en la configuración del servidor.';
         }
-        if (! $issuer) {
+        if (! $issuer || empty($issuerReadiness['is_ready'])) {
             $blockers[] = 'Emisor fiscal incompleto.';
         }
         if (empty($csd['ready'])) {
-            $blockers[] = 'CSD faltante o no utilizable.';
+            $blockers[] = (string) ($csd['label'] ?? 'CSD faltante o no utilizable.');
         }
         if ($series < 1) {
             $blockers[] = 'Serie fiscal faltante.';
@@ -143,8 +137,18 @@ final class FiscalOnboardingReadinessService
 
         $details = [
             'environment' => $environment,
-            'issuer' => ['status' => $issuer ? 'READY' : 'INCOMPLETE', 'id' => $issuer?->id],
-            'csd' => ['status' => ! empty($csd['ready']) ? 'READY' : 'MISSING'],
+            'issuer' => [
+                'status' => ! empty($issuerReadiness['is_ready']) ? 'READY' : 'INCOMPLETE',
+                'id' => $issuer?->id,
+                'errors' => $issuerReadiness['errors'] ?? [],
+            ],
+            'csd' => [
+                'status' => $csd['status'],
+                'registered' => $csd['registered'],
+                'code' => $csd['code'],
+                'label' => $csd['label'],
+                'certificate_id' => $csd['certificate_id'],
+            ],
             'series' => ['status' => $series ? 'READY' : 'MISSING', 'active' => $series],
             'pac' => [
                 'status' => $runtime['operational'] ? 'READY' : ($runtime['pac_configured'] ? 'TEST' : 'MISSING'),
