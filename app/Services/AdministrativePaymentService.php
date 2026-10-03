@@ -12,7 +12,7 @@ final class AdministrativePaymentService
     {
         $accountId=(int)($data['destination_financial_account_id']??0);if(!$this->db->table('financial_accounts')->where(['id'=>$accountId,'deleted'=>0,'is_active'=>1,'currency'=>'MXN'])->countAllResults())throw new RuntimeException('Debe seleccionar una cuenta financiera MXN activa.');
         $invoiceId=(int)($data['invoice_id']??0);$clientId=(int)($data['client_id']??0);
-        if($invoiceId){$invoice=$this->db->table('invoices')->select('client_id')->where(['id'=>$invoiceId,'deleted'=>0])->get(1)->getRow();if(!$invoice)throw new RuntimeException('La venta no existe.');if($clientId&&$clientId!==(int)$invoice->client_id)throw new RuntimeException('La venta pertenece a otro cliente.');$clientId=(int)$invoice->client_id;}
+        if($invoiceId){$invoice=$this->db->table('invoices')->select('client_id')->where(['id'=>$invoiceId,'deleted'=>0])->get(1)->getRow();if(!$invoice)throw new RuntimeException('La venta no existe.');if(!$id){$eligibility=(new \App\Services\Sales\SalePaymentEligibilityService($this->db))->evaluate($invoiceId);if(!$eligibility['allowed'])throw new RuntimeException($eligibility['message']);}if($clientId&&$clientId!==(int)$invoice->client_id)throw new RuntimeException('La venta pertenece a otro cliente.');$clientId=(int)$invoice->client_id;}
         if(!$clientId||!$this->db->table('clients')->where(['id'=>$clientId,'deleted'=>0])->countAllResults())throw new RuntimeException('Debe seleccionar un cliente válido.');
         $data['client_id']=$clientId;$data['invoice_id']=$invoiceId?:null;$data['amount']=FinancialMoney::positive($data['amount']??'0');$data['destination_financial_account_id']=$accountId;$data['status']='active';$data['deleted']=0;
         $this->db->transBegin();try{
@@ -20,6 +20,7 @@ final class AdministrativePaymentService
             else{if(!$this->db->table('invoice_payments')->insert($data))throw new RuntimeException('No fue posible guardar el pago.');$paymentId=(int)$this->db->insertID();}
             (new FinancialAccountMovementService($this->db))->sync('invoice_payment',$paymentId,$accountId,'in',$data['amount'],substr((string)$data['payment_date'],0,10),isset($data['created_by'])?(int)$data['created_by']:null,(string)($data['reference']??$data['note']??''));
             if(!$id&&$invoiceId){$allocations=new PaymentAllocationService($this->db);$outstanding=$allocations->saleOutstanding($invoiceId);if(bccomp($outstanding,'0',6)<=0)throw new RuntimeException('La venta seleccionada no tiene saldo pendiente.');$automatic=bccomp($data['amount'],$outstanding,6)>0?$outstanding:$data['amount'];$allocations->createWithinTransaction($paymentId,$invoiceId,$automatic,isset($data['created_by'])?(int)$data['created_by']:null,substr((string)$data['payment_date'],0,10));}
+            if($invoiceId)(new \App\Services\Sales\SalePaymentStatusService($this->db))->synchronize($invoiceId);
             if(!$this->db->transStatus())throw new RuntimeException('No fue posible registrar el movimiento financiero del pago.');$this->db->transCommit();return$paymentId;
         }catch(Throwable$e){$this->db->transRollback();throw$e;}
     }

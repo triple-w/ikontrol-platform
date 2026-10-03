@@ -30,7 +30,11 @@ final class PaymentAllocationService
     {
         $sale = $this->sale($id);
         if (!$sale) throw new RuntimeException('La venta no existe.');
-        return FinancialMoney::subtract(FinancialMoney::fromDatabase($sale->invoice_total), $this->salePaid($id));
+        $outstanding = FinancialMoney::subtract(
+            FinancialMoney::subtract(FinancialMoney::fromDatabase($sale->invoice_total), $this->salePaid($id)),
+            (new \App\Services\Fiscal\CreditNoteBalanceService($this->db))->creditedSaleAmount($id)
+        );
+        return bccomp($outstanding, '0.000000', 6) > 0 ? $outstanding : '0.000000';
     }
 
     public function create(int $paymentId, int $saleId, $amount, ?int $actor, ?string $date = null): int
