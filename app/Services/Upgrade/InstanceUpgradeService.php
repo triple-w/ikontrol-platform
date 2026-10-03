@@ -22,6 +22,11 @@ final class InstanceUpgradeService
             'release_id' => 'ikontrol-1.1.0-canonical-instances',
             'steps' => ['sat_catalog_schema', 'sat_catalog_import', 'instance_identity', 'instance_feature_defaults', 'record_version'],
         ],
+        '1.1.0' => [
+            'to' => '1.1.1',
+            'release_id' => 'ikontrol-1.1.1-financial-ledger-compatibility',
+            'steps' => ['financial_account_movements_schema', 'record_version'],
+        ],
     ];
 
     public function __construct(private BaseConnection $db, private ?string $catalogRoot = null)
@@ -93,6 +98,7 @@ final class InstanceUpgradeService
             'sat_catalog_import' => (new SatCatalogImporterService($this->db, $this->catalogRoot))->update(),
             'instance_feature_defaults' => (new InstanceFeaturesService($this->db))->ensureDefaults(),
             'instance_identity' => ['instance_uuid' => (new InstanceIdentityService($this->db))->ensure()],
+            'financial_account_movements_schema' => (new FinancialAccountMovementsSchemaUpgrade($this->db))->apply(),
             'record_version' => $this->recordVersion($package['to'], $package['release_id']),
             default => throw new RuntimeException('Unknown directed upgrade step: ' . $step),
         };

@@ -102,5 +102,7 @@ $saleReadiness = file_get_contents(APPPATH . 'Services/Fiscal/SaleFiscalReadines
 $assert(str_contains($onboarding, 'FiscalIssuerResolver') && str_contains($saleReadiness, 'FiscalIssuerResolver'), 'onboarding y revisión de venta usan el mismo resolver después de normalizar');
 $controller = file_get_contents(APPPATH . 'Controllers/Invoice_payments.php');
 $assert(str_contains($controller, 'SalePaymentEligibilityService') && ! str_contains($controller, "in_array(\$saleLifecycle->commercial_status"), 'save_payment consume la policy canónica y no decide por commercial_status');
+$paymentView = file_get_contents(APPPATH . 'Views/invoices/payment_modal_form.php');
+$assert(str_contains($controller, 'invoice_display_id') && str_contains($controller, '$row->display_id') && str_contains($paymentView, 'esc($invoice_display_id'), 'modal y selector presentan display_id y conservan invoice_id interno');
 
 echo "passed={$pass}\n";

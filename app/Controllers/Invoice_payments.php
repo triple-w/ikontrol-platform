@@ -62,9 +62,11 @@ class Invoice_payments extends Security_Controller {
 
         $invoice_id = $this->request->getPost('invoice_id') ? $this->request->getPost('invoice_id') : $view_data['model_info']->invoice_id;
         $client_id = (int)($this->request->getPost('client_id') ?: ($view_data['model_info']->client_id ?? 0));
+        $invoice_display_id = '';
         if ($invoice_id) {
             $invoice_for_client = $this->Invoices_model->get_one($invoice_id);
             $client_id = (int)$invoice_for_client->client_id;
+            $invoice_display_id = trim((string)($invoice_for_client->display_id ?? '')) ?: 'Venta #' . (int)$invoice_id;
         }
         $clients_dropdown = array('' => '- Seleccione cliente -');
         foreach (db_connect()->table('clients')->select('id,company_name')->where(['deleted'=>0,'is_lead'=>0])->orderBy('company_name')->get()->getResult() as $client) {
@@ -72,6 +74,7 @@ class Invoice_payments extends Security_Controller {
         }
         $view_data['clients_dropdown'] = $clients_dropdown;
         $view_data['client_id'] = $client_id;
+        $view_data['invoice_display_id'] = $invoice_display_id;
 
         if (!$invoice_id) {
             //prepare invoices dropdown
@@ -236,7 +239,7 @@ class Invoice_payments extends Security_Controller {
     public function client_invoices()
     {
         $this->access_only_allowed_members();$this->validate_submitted_data(['client_id'=>'required|numeric']);$clientId=(int)$this->request->getPost('client_id');$rows=$this->Invoices_model->get_invoices_dropdown_list($clientId)->getResult();$results=[];
-        foreach($rows as$row)$results[]=['id'=>(int)$row->id,'text'=>'Venta #'.$row->id.' — Saldo '.to_currency($row->invoice_due,$row->currency_symbol?:get_setting('currency_symbol'))];
+        foreach($rows as$row)$results[]=['id'=>(int)$row->id,'text'=>(trim((string)($row->display_id??''))?:'Venta #'.(int)$row->id).' — Saldo '.to_currency($row->invoice_due,$row->currency_symbol?:get_setting('currency_symbol'))];
         echo json_encode(['success'=>true,'results'=>$results]);
     }
 
