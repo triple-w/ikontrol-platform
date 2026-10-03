@@ -27,6 +27,11 @@ final class InstanceUpgradeService
             'release_id' => 'ikontrol-1.1.1-financial-ledger-compatibility',
             'steps' => ['financial_account_movements_schema', 'record_version'],
         ],
+        '1.1.1' => [
+            'to' => '1.1.2',
+            'release_id' => 'ikontrol-1.1.2-payment-allocations-compatibility',
+            'steps' => ['payment_allocations_schema', 'record_version'],
+        ],
     ];
 
     public function __construct(private BaseConnection $db, private ?string $catalogRoot = null)
@@ -99,6 +104,7 @@ final class InstanceUpgradeService
             'instance_feature_defaults' => (new InstanceFeaturesService($this->db))->ensureDefaults(),
             'instance_identity' => ['instance_uuid' => (new InstanceIdentityService($this->db))->ensure()],
             'financial_account_movements_schema' => (new FinancialAccountMovementsSchemaUpgrade($this->db))->apply(),
+            'payment_allocations_schema' => (new PaymentAllocationsSchemaUpgrade($this->db))->apply(),
             'record_version' => $this->recordVersion($package['to'], $package['release_id']),
             default => throw new RuntimeException('Unknown directed upgrade step: ' . $step),
         };

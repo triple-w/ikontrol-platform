@@ -85,9 +85,16 @@ final class PaymentAllocationService
         if (bccomp($amount, $available, 6) > 0) throw new RuntimeException('El importe excede el saldo disponible del pago.');
         if (bccomp($amount, $outstanding, 6) > 0) throw new RuntimeException('El importe excede el saldo pendiente de la venta.');
         $data = ['amount_applied' => $amount, 'allocation_date' => $date ?: gmdate('Y-m-d'), 'status' => 'active', 'deleted' => 0, 'deactivated_at' => null, 'deactivated_by' => null, 'deactivation_reason' => null, 'updated_at' => get_current_utc_time()];
-        if ($existing) { $this->db->table('payment_allocations')->where('id', $existing->id)->update($data); return (int) $existing->id; }
+        if ($existing) {
+            if (! $this->db->table('payment_allocations')->where('id', $existing->id)->update($data)) {
+                throw new RuntimeException('No fue posible actualizar la aplicación del pago.');
+            }
+            return (int) $existing->id;
+        }
         $data += ['invoice_payment_id' => $paymentId, 'invoice_id' => $saleId, 'created_by' => $actor, 'created_at' => get_current_utc_time()];
-        $this->db->table('payment_allocations')->insert($data);
+        if (! $this->db->table('payment_allocations')->insert($data)) {
+            throw new RuntimeException('No fue posible guardar la aplicación del pago.');
+        }
         return (int) $this->db->insertID();
     }
 

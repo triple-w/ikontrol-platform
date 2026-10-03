@@ -21,7 +21,7 @@ final class AdministrativePaymentService
             (new FinancialAccountMovementService($this->db))->sync('invoice_payment',$paymentId,$accountId,'in',$data['amount'],substr((string)$data['payment_date'],0,10),isset($data['created_by'])?(int)$data['created_by']:null,(string)($data['reference']??$data['note']??''));
             if(!$id&&$invoiceId){$allocations=new PaymentAllocationService($this->db);$outstanding=$allocations->saleOutstanding($invoiceId);if(bccomp($outstanding,'0',6)<=0)throw new RuntimeException('La venta seleccionada no tiene saldo pendiente.');$automatic=bccomp($data['amount'],$outstanding,6)>0?$outstanding:$data['amount'];$allocations->createWithinTransaction($paymentId,$invoiceId,$automatic,isset($data['created_by'])?(int)$data['created_by']:null,substr((string)$data['payment_date'],0,10));}
             if($invoiceId)(new \App\Services\Sales\SalePaymentStatusService($this->db))->synchronize($invoiceId);
-            if(!$this->db->transStatus())throw new RuntimeException('No fue posible registrar el movimiento financiero del pago.');$this->db->transCommit();return$paymentId;
+            if(!$this->db->transStatus())throw new RuntimeException('No fue posible completar el registro transaccional del pago.');$this->db->transCommit();return$paymentId;
         }catch(Throwable$e){$this->db->transRollback();throw$e;}
     }
     public function cancel(int$id,int$actor,string$reason):void
