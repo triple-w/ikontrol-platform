@@ -42,7 +42,7 @@
                         <select name="source_financial_account_id" id="source_financial_account_id" class="form-control select2 validate-hidden" required data-rule-required="true" data-msg-required="<?php echo app_lang('field_required'); ?>">
                             <option value="">- Seleccione cuenta MXN -</option>
                             <?php foreach ($financial_accounts as $account) { ?>
-                                <option value="<?php echo $account->id; ?>" <?php echo ((int)$model_info->source_financial_account_id === (int)$account->id) ? 'selected' : ''; ?>><?php echo esc($account->name); ?></option>
+                                <option value="<?php echo $account->id; ?>" <?php echo ((int)($model_info->source_financial_account_id ?? 0) === (int)$account->id) ? 'selected' : ''; ?>><?php echo esc($account->name); ?></option>
                             <?php } ?>
                         </select>
                     </div>

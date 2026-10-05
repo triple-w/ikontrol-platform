@@ -82,6 +82,10 @@ class Expenses extends Security_Controller {
 
         $model_info = $this->Expenses_model->get_one($id);
 
+        // Pre-ledger installations may render this form before their directed
+        // schema upgrade. Keep the view model readable without inventing an account.
+        $model_info->source_financial_account_id = $model_info->source_financial_account_id ?? null;
+
         $model_info->project_id = $model_info->project_id ? $model_info->project_id : $project_id;
         $model_info->client_id = $model_info->client_id ? $model_info->client_id : $client_id;
         $model_info->user_id = $model_info->user_id ? $model_info->user_id : $this->request->getPost('user_id');
