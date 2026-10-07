@@ -9,7 +9,7 @@ use App\Services\Fiscal\FiscalIssuerResolver;
 use App\Services\Fiscal\Pdf\FiscalPdfTemplateResolver;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use Throwable;
-use App\Services\Fiscal\Stamps\FiscalStampAccountService;
+use App\Services\Fiscal\Stamps\FiscalStampBalanceService;
 
 final class InvoiceModule extends Security_Controller
 {
@@ -19,7 +19,7 @@ final class InvoiceModule extends Security_Controller
         $db=db_connect();
         $companyId=function_exists('get_default_company_id')?(int)get_default_company_id():null;
         $issuer=(new FiscalIssuerResolver($db))->resolve($companyId?:null);
-        $stampBalance=$issuer?(new FiscalStampAccountService($db))->getBalance((int)$issuer->id):['available'=>0,'reserved'=>0];
+        $stampBalance=$issuer?(new FiscalStampBalanceService($db))->forIssuer((int)$issuer->id):['available'=>0,'reserved'=>0,'usable'=>0];
         return $this->template->rander('fiscal/invoices/module_index', [
             'advanced_view' => $this->allowed('fiscal.advanced.view'),
             'stamp_balance' => $stampBalance,

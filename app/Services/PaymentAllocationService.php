@@ -89,13 +89,16 @@ final class PaymentAllocationService
             if (! $this->db->table('payment_allocations')->where('id', $existing->id)->update($data)) {
                 throw new RuntimeException('No fue posible actualizar la aplicación del pago.');
             }
+            (new \App\Services\Sales\SaleLifecycleService($this->db))->recordPaymentActivity($saleId, (int)$actor);
             return (int) $existing->id;
         }
         $data += ['invoice_payment_id' => $paymentId, 'invoice_id' => $saleId, 'created_by' => $actor, 'created_at' => get_current_utc_time()];
         if (! $this->db->table('payment_allocations')->insert($data)) {
             throw new RuntimeException('No fue posible guardar la aplicación del pago.');
         }
-        return (int) $this->db->insertID();
+        $allocationId = (int) $this->db->insertID();
+        (new \App\Services\Sales\SaleLifecycleService($this->db))->recordPaymentActivity($saleId, (int)$actor);
+        return $allocationId;
     }
 
     public function deactivate(int $id, int $actor = 0, string $reason = 'Retirada administrativa'): void
@@ -105,6 +108,8 @@ final class PaymentAllocationService
             $row = $this->db->query('SELECT * FROM '.$this->db->prefixTable('payment_allocations').' WHERE id=? FOR UPDATE', [$id])->getRow();
             if (!$row || $row->status !== 'active' || (int) $row->deleted) throw new RuntimeException('La aplicación no existe o ya fue retirada.');
             $this->db->table('payment_allocations')->where('id', $id)->update(['deleted' => 1, 'status' => 'inactive', 'deactivated_at' => get_current_utc_time(), 'deactivated_by' => $actor ?: null, 'deactivation_reason' => $reason, 'updated_at' => get_current_utc_time()]);
+            (new \App\Services\Sales\SaleLifecycleService($this->db))->recordPaymentActivity((int)$row->invoice_id, $actor);
+            if (! $this->db->transStatus()) throw new RuntimeException('No fue posible retirar la aplicación.');
             $this->db->transCommit();
         } catch (Throwable $e) { $this->db->transRollback(); throw $e; }
     }
@@ -119,9 +124,11 @@ final class PaymentAllocationService
         $now = get_current_utc_time();
         if (bccomp($previousAmount, '0.000000', 6) === 0) {
             $this->db->table('payment_allocations')->where('id', $id)->update(['deleted' => 1, 'status' => 'inactive', 'deactivated_at' => $now, 'deactivated_by' => $actor, 'deactivation_reason' => $reason, 'updated_at' => $now]);
+            (new \App\Services\Sales\SaleLifecycleService($this->db))->recordPaymentActivity((int)$row->invoice_id, (int)$actor);
             return;
         }
         $this->db->table('payment_allocations')->where('id', $id)->update(['amount_applied' => $previousAmount, 'updated_at' => $now]);
+        (new \App\Services\Sales\SaleLifecycleService($this->db))->recordPaymentActivity((int)$row->invoice_id, (int)$actor);
     }
 
     public function candidates(int $clientId): array

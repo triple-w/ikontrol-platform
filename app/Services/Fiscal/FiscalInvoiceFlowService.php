@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace App\Services\Fiscal;
 
-use App\Services\Fiscal\Stamps\FiscalStampAccountService;
+use App\Services\Fiscal\Stamps\FiscalStampBalanceService;
 use App\Services\Sales\SaleLifecycleService;
 use RuntimeException;
 use Throwable;
@@ -10,8 +10,8 @@ use Throwable;
 /** Orchestrates the normal one-click invoice flow without exposing draft/PAC internals. */
 final class FiscalInvoiceFlowService
 {
-    public function __construct(private mixed $db=null,private ?FiscalDraftWorkflowService $workflow=null,private ?FiscalDraftStampingPreflightService $preflight=null,private ?FiscalDraftStampingService $stamping=null,private ?FiscalStampAccountService $wallet=null,private ?FiscalSaleAttemptResolver $attempts=null)
-    {$this->db??=db_connect();$this->workflow??=new FiscalDraftWorkflowService($this->db);$this->preflight??=new FiscalDraftStampingPreflightService($this->db);$this->stamping??=new FiscalDraftStampingService($this->db);$this->wallet??=new FiscalStampAccountService($this->db);$this->attempts??=new FiscalSaleAttemptResolver($this->db);}
+    public function __construct(private mixed $db=null,private ?FiscalDraftWorkflowService $workflow=null,private ?FiscalDraftStampingPreflightService $preflight=null,private ?FiscalDraftStampingService $stamping=null,private ?FiscalStampBalanceService $wallet=null,private ?FiscalSaleAttemptResolver $attempts=null)
+    {$this->db??=db_connect();$this->workflow??=new FiscalDraftWorkflowService($this->db);$this->preflight??=new FiscalDraftStampingPreflightService($this->db);$this->stamping??=new FiscalDraftStampingService($this->db);$this->wallet??=new FiscalStampBalanceService($this->db);$this->attempts??=new FiscalSaleAttemptResolver($this->db);}
 
     public function inspect(int $draftId,bool$allowOpenSale=false):array
     {
@@ -21,7 +21,7 @@ final class FiscalInvoiceFlowService
         foreach($snapshot['allocations']as$allocation){$sale=$this->db->table('invoices')->select('commercial_status,status,deleted')->where('id',(int)$allocation['sale_id'])->get(1)->getRow();$allowedStatus=$allowOpenSale?['draft','open','closed']:['closed'];if(!$sale||(int)$sale->deleted===1||!in_array((string)$sale->commercial_status,$allowedStatus,true)||$sale->status==='cancelled'){$errors[]=['field'=>'sale','section'=>'sales','code'=>'SALE_NOT_CLOSED','message'=>'La venta debe estar disponible para facturación.'];break;}}
         $documentId=(int)($draft['fiscal_document_id']??0);if($documentId&&$this->hasActiveAttempt($documentId))return$this->unknown($draftId,$documentId,'Estamos verificando el resultado de la factura. No vuelva a facturar este documento.');
         if($documentId&&$this->hasRejectedAttempt($documentId))$errors[]=['field'=>'document','section'=>'document','code'=>'PREPARED_DOCUMENT_REBUILD_REQUIRED','message'=>'La preparacion fiscal rechazada debe regenerarse antes de volver a intentar.'];
-        $environment=FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));$issuerId=(int)($draft['issuer_id']??0);$balance=$issuerId?$this->wallet->getBalance($issuerId,$environment):['available'=>0,'reserved'=>0];if((int)$balance['available']<1)$errors[]=['field'=>'wallet','section'=>'issuer','code'=>'STAMP_BALANCE_EMPTY','message'=>'No hay timbres disponibles para generar esta factura.'];
+        $environment=FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));$issuerId=(int)($draft['issuer_id']??0);$balance=$issuerId?$this->wallet->forIssuer($issuerId,$environment):['available'=>0,'reserved'=>0,'usable'=>0];if((int)$balance['usable']<1)$errors[]=['field'=>'wallet','section'=>'issuer','code'=>'STAMP_BALANCE_EMPTY','message'=>'No hay timbres disponibles para generar esta factura.'];
         return['ready'=>!$errors,'status'=>$errors?'review_needed':'ready','blockers'=>array_map([$this,'actionable'],$errors),'summary'=>$this->summary($snapshot,$balance),'draft_id'=>$draftId,'document_id'=>$documentId?:null];
     }
 

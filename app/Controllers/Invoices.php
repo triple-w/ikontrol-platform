@@ -1648,10 +1648,22 @@ class Invoices extends Security_Controller {
                     return "";
                 }
             } else if ($status == "not_paid") {
-                $this->Invoices_model->update_invoice_status($invoice_id, $status);
+                $db = db_connect();
+                $sale = $db->table('invoices')->select('commercial_status')->where('id', $invoice_id)->get(1)->getRow();
+                if ($sale && (string) $sale->commercial_status !== 'closed') {
+                    (new \App\Services\Sales\SaleLifecycleService($db))->close(
+                        (int) $invoice_id,
+                        (int) $this->login_user->id,
+                        'Cierre comercial solicitado desde iKontrol'
+                    );
+                } else {
+                    (new \App\Services\Sales\SalePaymentStatusService($db))->synchronize((int) $invoice_id);
+                }
                 $this->_add_payment_from_client_wallet($invoice_id);
+                (new \App\Services\Sales\SalePaymentStatusService($db))->synchronize((int) $invoice_id);
             } else {
-                $this->Invoices_model->update_invoice_status($invoice_id, $status);
+                // Payment status is evidence-based; manual actions cannot invent a paid/partial state.
+                (new \App\Services\Sales\SalePaymentStatusService(db_connect()))->synchronize((int) $invoice_id);
             }
 
             echo json_encode(array("success" => true, 'message' => app_lang('record_saved')));
@@ -1721,10 +1733,6 @@ class Invoices extends Security_Controller {
         $invoice_payment_data['destination_financial_account_id'] = $payment_service->defaultAccountForMethod((int) $invoice_payment_data['payment_method_id']);
         $invoice_payment_id = $payment_service->save($invoice_payment_data);
         if ($invoice_payment_id) {
-
-            //As receiving payment for the invoice, we'll remove the 'draft' status from the invoice 
-            $this->Invoices_model->update_invoice_status($invoice_id);
-
             echo json_encode(array("success" => true, 'id' => $invoice_payment_id, 'message' => app_lang('record_saved')));
         } else {
             echo json_encode(array("success" => false, 'message' => app_lang('error_occurred')));

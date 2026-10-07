@@ -37,7 +37,21 @@ final class SaleLifecycleService
     public function close(int $id,int $userId,?string $reason): void
     {
         $decision=$this->canClose($id,$userId);if(!$decision['allowed'])throw new RuntimeException($decision['code'].': '.implode(' ',$decision['blockers']));
-        $this->db->transBegin();try{$sale=$this->db->query('SELECT commercial_status FROM '.$this->db->prefixTable('invoices').' WHERE id=? FOR UPDATE',[$id])->getRow();$this->db->table('invoices')->where('id',$id)->update(['commercial_status'=>'closed','closed_at'=>get_current_utc_time(),'closed_by'=>$userId,'closure_reason'=>mb_substr(trim((string)$reason),0,500)]);$this->audit($id,$userId,'sale_closed',$sale->commercial_status,'closed',$reason);$this->db->transCommit();}catch(Throwable$e){$this->db->transRollback();throw$e;}
+        $this->db->transBegin();try{$sale=$this->db->query('SELECT commercial_status FROM '.$this->db->prefixTable('invoices').' WHERE id=? FOR UPDATE',[$id])->getRow();$this->db->table('invoices')->where('id',$id)->update(['commercial_status'=>'closed','closed_at'=>get_current_utc_time(),'closed_by'=>$userId,'closure_reason'=>mb_substr(trim((string)$reason),0,500)]);$this->audit($id,$userId,'sale_closed',$sale->commercial_status,'closed',$reason);(new SalePaymentStatusService($this->db))->synchronize($id);$this->db->transCommit();}catch(Throwable$e){$this->db->transRollback();throw$e;}
+    }
+
+    /** Must run inside the payment/allocation transaction that created the financial evidence. */
+    public function recordPaymentActivity(int $id, int $userId): array
+    {
+        $sale=$this->db->DBDriver==='SQLite3'?$this->db->table('invoices')->where('id',$id)->get(1)->getRow():$this->db->query('SELECT * FROM '.$this->db->prefixTable('invoices').' WHERE id=? FOR UPDATE',[$id])->getRow();
+        if(!$sale||(int)$sale->deleted)throw new RuntimeException('SALE_NOT_FOUND');
+        if((string)$sale->status==='cancelled'||(string)$sale->commercial_status==='cancelled')throw new RuntimeException('SALE_CANCELLED');
+        if((string)$sale->commercial_status!=='closed'){
+            $now=get_current_utc_time();
+            $this->db->table('invoices')->where('id',$id)->update(['commercial_status'=>'closed','closed_at'=>$now,'closed_by'=>$userId?:null,'closure_reason'=>'Cierre automático al registrar el primer pago']);
+            $this->audit($id,$userId,'sale_closed_after_payment',(string)$sale->commercial_status,'closed','Pago administrativo aplicado');
+        }
+        return (new SalePaymentStatusService($this->db))->synchronize($id);
     }
 
     /** Idempotent local transition after persisted CFDI evidence exists. */

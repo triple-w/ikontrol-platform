@@ -192,9 +192,6 @@ class Invoice_payments extends Security_Controller {
         try {
             $invoice_payment_id = (new \App\Services\AdministrativePaymentService(db_connect()))->save($invoice_payment_data, (int)$id);
 
-            //As receiving payment for the invoice, we'll remove the 'draft' status from the invoice 
-            if ($invoice_id) $this->Invoices_model->update_invoice_status($invoice_id);
-
             if (!$id) {
                 //show payment confirmation and payment received notification for new payments only
                 log_notification("invoice_payment_confirmation", array("invoice_payment_id" => $invoice_payment_id, "invoice_id" => $invoice_id), "0");

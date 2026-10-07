@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Services\Fiscal;
 
 use App\Services\Fiscal\Stamps\FiscalStampAccountService;
+use App\Services\Fiscal\Stamps\FiscalStampBalanceService;
 use CodeIgniter\Database\BaseConnection;
 use InvalidArgumentException;
 
@@ -17,17 +18,27 @@ final class FiscalStampAdminService
 
     public function getAccounts(): array
     {
-        $environmentAware = $this->db->fieldExists('environment', 'fiscal_stamp_accounts');
-        $select = 'p.id issuer_profile_id,p.rfc,p.legal_name,p.environment profile_environment,p.status profile_status,'
-            . 'a.id stamp_account_id,COALESCE(a.available_balance,0) available_balance,'
-            . 'COALESCE(a.reserved_balance,0) reserved_balance,COALESCE(a.status,\'missing\') account_status,a.updated_at';
-        if ($environmentAware) {
-            $select .= ',a.environment account_environment';
+        $profiles = $this->db->table('fiscal_profiles')
+            ->select('id,rfc,legal_name,environment,status,deleted')
+            ->where('profile_type', 'issuer')->orderBy('id')->get()->getResult();
+        $balances = new FiscalStampBalanceService($this->db, $this->accounts);
+        $rows = [];
+        foreach ($profiles as $profile) {
+            $environment = in_array((string)$profile->environment, ['development','production'], true)
+                ? (string)$profile->environment
+                : FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));
+            $balance = $balances->forIssuer((int)$profile->id, $environment);
+            $account = $balance['account_id'] ? $this->db->table('fiscal_stamp_accounts')->select('updated_at')->where('id',$balance['account_id'])->get(1)->getRow() : null;
+            $rows[] = [
+                'issuer_profile_id'=>(int)$profile->id,'rfc'=>(string)$profile->rfc,'legal_name'=>(string)$profile->legal_name,
+                'profile_environment'=>(string)$profile->environment,'profile_status'=>(string)$profile->status,
+                'stamp_account_id'=>$balance['account_id'],'available_balance'=>$balance['available'],
+                'reserved_balance'=>$balance['reserved'],'usable_balance'=>$balance['usable'],
+                'account_status'=>$balance['status'],'updated_at'=>$account->updated_at ?? null,
+                'account_environment'=>$balance['environment'],
+            ];
         }
-        return $this->db->table('fiscal_profiles p')->select($select, false)
-            ->join('fiscal_stamp_accounts a', 'a.issuer_profile_id=p.id' . ($environmentAware ? ' AND a.environment=p.environment' : ''), 'left')
-            ->where('p.profile_type', 'issuer')
-            ->orderBy('p.id')->get()->getResultArray();
+        return $rows;
     }
 
     public function getHistory(?int $issuerId = null, ?string $type = null, ?string $from = null, ?string $to = null): array

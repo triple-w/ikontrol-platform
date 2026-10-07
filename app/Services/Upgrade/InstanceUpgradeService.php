@@ -37,6 +37,11 @@ final class InstanceUpgradeService
             'release_id' => 'ikontrol-1.1.3-expenses-financial-compatibility',
             'steps' => ['expenses_schema', 'record_version'],
         ],
+        '1.1.3' => [
+            'to' => '1.1.4',
+            'release_id' => 'ikontrol-1.1.4-canonical-stamps-and-sale-statuses',
+            'steps' => ['record_version'],
+        ],
     ];
 
     public function __construct(private BaseConnection $db, private ?string $catalogRoot = null)
