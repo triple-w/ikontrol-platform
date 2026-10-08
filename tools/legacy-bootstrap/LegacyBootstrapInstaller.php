@@ -6,6 +6,8 @@ namespace Ikontrol\LegacyBootstrap;
 
 use RuntimeException;
 
+require_once __DIR__.'/CanonicalFileHasher.php';
+
 /** Copies a versioned bootstrap payload into a legacy CodeIgniter project without overwriting files. */
 final class LegacyBootstrapInstaller
 {
@@ -35,21 +37,23 @@ final class LegacyBootstrapInstaller
         foreach ($manifest['files'] as $entry) {
             $path = $this->safePath((string)($entry['path'] ?? ''));
             $expected = strtolower((string)($entry['sha256'] ?? ''));
+            $expectedMode = (string)($entry['hash_mode'] ?? '');
             $source = $this->sourcePath($path);
             $target = $this->targetPath($path);
             if (! is_file($source)) {
                 $sourceErrors[] = ['path'=>$path,'reason'=>'source_missing'];
                 continue;
             }
-            $actual = hash_file('sha256', $source);
-            if (! preg_match('/^[0-9a-f]{64}$/', $expected) || ! hash_equals($expected, $actual)) {
+            $actualMode = CanonicalFileHasher::mode($path);
+            $actual = CanonicalFileHasher::hashFile($source,$path);
+            if ($expectedMode !== $actualMode || ! preg_match('/^[0-9a-f]{64}$/', $expected) || ! hash_equals($expected, $actual)) {
                 $sourceErrors[] = ['path'=>$path,'reason'=>'source_checksum_mismatch','expected'=>$expected,'actual'=>$actual];
                 continue;
             }
             if (is_dir($target)) {
                 $conflicts[] = ['path'=>$path,'reason'=>'target_is_directory'];
             } elseif (is_file($target)) {
-                $targetHash = hash_file('sha256', $target);
+                $targetHash = CanonicalFileHasher::hashFile($target,$path);
                 if (hash_equals($expected, $targetHash)) $identical[] = $path;
                 else $conflicts[] = ['path'=>$path,'reason'=>'target_differs','expected'=>$expected,'actual'=>$targetHash];
             } elseif (file_exists($target)) {
@@ -96,7 +100,7 @@ final class LegacyBootstrapInstaller
             }
             $this->assertInsideTarget($directory);
             if (file_exists($target)) {
-                if (is_file($target) && hash_equals(hash_file('sha256', $source), hash_file('sha256', $target))) continue;
+                if (is_file($target) && hash_equals(CanonicalFileHasher::hashFile($source,$path), CanonicalFileHasher::hashFile($target,$path))) continue;
                 throw new RuntimeException("Bootstrap target appeared concurrently: {$path}.");
             }
             $temporary = $target.'.ikontrol-bootstrap-'.bin2hex(random_bytes(6));
@@ -137,7 +141,7 @@ final class LegacyBootstrapInstaller
             if(!isset($expected[$path])){$modified[]=['path'=>$path,'reason'=>'not_in_manifest'];continue;}
             $target=$this->targetPath($path);
             if(!is_file($target)){$missing[]=$path;continue;}
-            $actual=hash_file('sha256',$target);
+            $actual=CanonicalFileHasher::hashFile($target,$path);
             if(hash_equals($expected[$path],$actual))$removable[]=$path;
             else$modified[]=['path'=>$path,'reason'=>'changed_after_install','expected'=>$expected[$path],'actual'=>$actual];
         }
@@ -149,7 +153,7 @@ final class LegacyBootstrapInstaller
     {
         if (! is_file($this->manifestPath)) throw new RuntimeException('Legacy bootstrap manifest is missing.');
         $manifest = json_decode((string)file_get_contents($this->manifestPath), true);
-        if (! is_array($manifest) || ($manifest['schema_version'] ?? null) !== 1
+        if (! is_array($manifest) || ($manifest['schema_version'] ?? null) !== 2
             || ! is_string($manifest['bootstrap_version'] ?? null)
             || ! is_string($manifest['canonical_version'] ?? null)
             || ! is_array($manifest['files'] ?? null) || $manifest['files'] === []) {

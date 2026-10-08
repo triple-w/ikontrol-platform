@@ -6,6 +6,15 @@ El bootstrap permite que una instalación CodeIgniter funcional, anterior al age
 
 La instalación es aditiva. Antes de escribir valida todos los checksums y todos los destinos. Si un destino ya existe con contenido distinto, devuelve `CONFLICT` y realiza cero escrituras. Si todos los destinos coinciden, devuelve `INSTALLED`. No contiene migraciones, SQL, DML, cambios de `.env`, operaciones Git ni acceso a PAC.
 
+Los checksums son portables entre Windows y Linux. `CanonicalFileHasher` declara dos modos:
+
+- `text-lf-sha256`: para `php`, `json`, `md`, `txt`, `csv`, `yml`, `yaml`, `xml`, `sql`, `js`, `css`, `html`, `htm`, `sh` y `ps1`; normaliza CRLF y CR a LF exclusivamente para calcular SHA-256.
+- `binary-sha256`: para cualquier otra extensión; calcula SHA-256 sobre los bytes físicos sin normalización.
+
+El archivo copiado conserva exactamente los bytes de la fuente. La normalización sólo define su identidad lógica en el manifest, la comparación del destino y el rollback-plan. La copia temporal se verifica además byte a byte para garantizar que el transporte local no alteró el archivo. `bytes_on_build_host` es informativo y puede variar por EOL; no participa en la validación. El recibo conserva el SHA-256 físico del manifest instalado como evidencia del artefacto concreto usado en esa ejecución.
+
+El repositorio no tiene `.gitattributes`. Conviene definir EOL de manera global en un cambio posterior y aislado, pero agregarlo aquí podría provocar una normalización masiva de archivos históricos. La portabilidad del bootstrap no depende de `core.autocrlf` ni de reglas Git.
+
 Navika/DOLD no es `UNREACHABLE`: PHP, CodeIgniter 4.6.1 y `spark` funcionan, pero el commit legacy `4daa416` no contiene los comandos del agente. Su clasificación correcta antes del bootstrap es `LEGACY_BOOTSTRAP_REQUIRED`.
 
 ## Grafo real de dependencias
@@ -105,7 +114,7 @@ php /ruta/temporal/ikontrol-platform-1.1.4/tools/legacy-bootstrap/install.php \
 El instalador crea un recibo en:
 
 ```text
-/home/tws001/navika.ikontrol.solutions/.ikontrol-legacy-bootstrap/legacy-bootstrap-1.1.4.1.json
+/home/tws001/navika.ikontrol.solutions/.ikontrol-legacy-bootstrap/legacy-bootstrap-1.1.4.2.json
 ```
 
 Después, desde Navika:

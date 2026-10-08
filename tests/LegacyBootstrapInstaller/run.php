@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__,2).'/tools/legacy-bootstrap/LegacyBootstrapInstaller.php';
 
+use Ikontrol\LegacyBootstrap\CanonicalFileHasher;
 use Ikontrol\LegacyBootstrap\LegacyBootstrapInstaller;
 
 $root=dirname(__DIR__,2);
@@ -27,8 +28,19 @@ $decoded=json_decode((string)file_get_contents($manifest),true,512,JSON_THROW_ON
 $paths=array_column($decoded['files'],'path');
 $required=['app/Config/Version.php','app/Commands/IkontrolVersion.php','app/Commands/IkontrolDatabaseCheck.php','app/Commands/IkontrolBaselineCheck.php','app/Commands/IkontrolAdoptBaseline.php','app/Commands/IkontrolUpgradePlan.php','app/Commands/IkontrolUpgrade.php','app/Services/Upgrade/LegacyBaselineAdoptionService.php','app/Services/Upgrade/InstanceUpgradeService.php'];
 $ok(array_diff($required,$paths)===[],'manifest contiene los seis comandos y servicios mínimos de adopción/versionado');
-$hashes=true;foreach($decoded['files']as$entry){$file=$root.'/'.$entry['path'];$hashes=$hashes&&is_file($file)&&hash_equals($entry['sha256'],hash_file('sha256',$file));}
+$hashes=true;foreach($decoded['files']as$entry){$file=$root.'/'.$entry['path'];$hashes=$hashes&&is_file($file)&&($entry['hash_mode']??null)===CanonicalFileHasher::mode($entry['path'])&&hash_equals($entry['sha256'],CanonicalFileHasher::hashFile($file,$entry['path']));}
 $ok($hashes,'checksums del payload coinciden con las fuentes canónicas');
+
+$logical="first\nsecond\n";$lfHash=CanonicalFileHasher::hashString($logical,'fixture.php');$crlfHash=CanonicalFileHasher::hashString(str_replace("\n","\r\n",$logical),'fixture.php');$crHash=CanonicalFileHasher::hashString(str_replace("\n","\r",$logical),'fixture.php');
+$ok($lfHash===$crlfHash&&$lfHash===$crHash,'LF, CRLF y CR producen el mismo checksum canónico de texto');
+$ok($lfHash!==CanonicalFileHasher::hashString("first\nchanged\n",'fixture.php'),'un cambio real de contenido produce checksum diferente');
+$ok(CanonicalFileHasher::hashString($logical,'fixture.bin')!==CanonicalFileHasher::hashString(str_replace("\n","\r\n",$logical),'fixture.bin'),'archivos binarios conservan comparación byte a byte');
+
+$portableSource=$temp.'/portable-source';$portableTarget=$target('portable-target');mkdir($portableSource,0775,true);file_put_contents($portableSource.'/portable.php',$logical);$portableManifest=$temp.'/portable-manifest.json';file_put_contents($portableManifest,json_encode(['schema_version'=>2,'bootstrap_version'=>'portable-fixture','canonical_version'=>'1.1.4','files'=>[['path'=>'portable.php','hash_mode'=>CanonicalFileHasher::TEXT_MODE,'sha256'=>CanonicalFileHasher::hashString(str_replace("\n","\r\n",$logical),'portable.php')]]],JSON_THROW_ON_ERROR));
+$portable=(new LegacyBootstrapInstaller($portableSource,$portableTarget,$portableManifest))->inspect();
+$ok($portable['status']==='READY_TO_INSTALL'&&$portable['source_errors']===[],'dry-run acepta fuente LF con manifest calculado desde CRLF equivalente');
+file_put_contents($portableTarget.'/portable.php',str_replace("\n","\r\n",$logical));$portable=(new LegacyBootstrapInstaller($portableSource,$portableTarget,$portableManifest))->inspect();
+$ok($portable['status']==='INSTALLED'&&$portable['identical']===['portable.php'],'comparación de destino reconoce LF y CRLF como el mismo texto lógico');
 
 $clean=$target('clean');$installer=new LegacyBootstrapInstaller($root,$clean,$manifest);$dry=$installer->inspect();
 $ok($dry['status']==='READY_TO_INSTALL'&&$dry['writes']===0&&!file_exists($clean.'/app/Commands/IkontrolVersion.php'),'dry-run calcula archivos sin escribir');

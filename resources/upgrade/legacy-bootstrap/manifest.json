@@ -1,145 +1,169 @@
 {
-    "schema_version": 1,
-    "bootstrap_version": "legacy-bootstrap-1.1.4.1",
+    "schema_version": 2,
+    "bootstrap_version": "legacy-bootstrap-1.1.4.2",
     "canonical_version": "1.1.4",
-    "generated_at": "2026-10-07T00:00:00Z",
+    "generated_at": "2026-10-08T00:00:00Z",
     "policy": {
         "additive_only": true,
         "overwrite": false,
-        "database_writes": false
+        "database_writes": false,
+        "text_checksum": "normalize CRLF and CR to LF before SHA-256",
+        "binary_checksum": "SHA-256 over physical bytes"
     },
     "files": [
         {
             "path": "app/Config/Version.php",
             "role": "canonical_version",
+            "hash_mode": "text-lf-sha256",
             "sha256": "f75bb342ca6136e7d4b91afce4e22d529c050190e35d7cfa30bd69238ffea754",
-            "size": 261
+            "bytes_on_build_host": 261
         },
         {
             "path": "app/Commands/IkontrolVersion.php",
             "role": "command",
+            "hash_mode": "text-lf-sha256",
             "sha256": "789005ec5c42cf5bd1da44f1de3984025a46e56e7b86e8cf40782bda95dd7332",
-            "size": 768
+            "bytes_on_build_host": 768
         },
         {
             "path": "app/Commands/IkontrolDatabaseCheck.php",
             "role": "command",
-            "sha256": "08f39d6c3ff9cb5858d0838a8b3fe01602b8531e4ff32ef06a3d8112dad8f879",
-            "size": 806
+            "hash_mode": "text-lf-sha256",
+            "sha256": "4572667c330671484342d5d0110df4c7778260db290d6a8fe67cedaa2cbf2c6f",
+            "bytes_on_build_host": 806
         },
         {
             "path": "app/Commands/IkontrolBaselineCheck.php",
             "role": "command",
-            "sha256": "5b88495bdc5a6db86a5bdd1a65d96af7c9f628b47a8551a6e908c1fe0eced2d2",
-            "size": 1245
+            "hash_mode": "text-lf-sha256",
+            "sha256": "b900fc1562d06615ccc1667c93345b3c5f16f157dcde4aa6c2fbd4018ccf7f09",
+            "bytes_on_build_host": 1245
         },
         {
             "path": "app/Commands/IkontrolAdoptBaseline.php",
             "role": "command",
+            "hash_mode": "text-lf-sha256",
             "sha256": "daf051d2231abfb537eed308601f6d40c684268a63593f35514bc222190a0d1f",
-            "size": 1476
+            "bytes_on_build_host": 1476
         },
         {
             "path": "app/Commands/IkontrolUpgradePlan.php",
             "role": "command",
+            "hash_mode": "text-lf-sha256",
             "sha256": "a3754d6eade591f7faa4eadcca9e95e8b04a7f79fef6fbb7fa24761f4add41c5",
-            "size": 994
+            "bytes_on_build_host": 994
         },
         {
             "path": "app/Commands/IkontrolUpgrade.php",
             "role": "command",
+            "hash_mode": "text-lf-sha256",
             "sha256": "f651feef369d84dc6f7fd60f645ea85bfdec9bfa74489658407760b73a15659d",
-            "size": 1317
+            "bytes_on_build_host": 1317
         },
         {
             "path": "app/Services/Baseline/BaselineCheckResult.php",
             "role": "baseline_dependency",
-            "sha256": "70b84d83cd138839f3f8978b3596d160d397bc630ccf748c392cd87b82138d38",
-            "size": 976
+            "hash_mode": "text-lf-sha256",
+            "sha256": "cf6211528ff1cf63c7a85de30f4ee72bd13d38bed24c40ff39886541d36aa560",
+            "bytes_on_build_host": 976
         },
         {
             "path": "app/Services/Baseline/IkontrolBaselineCheckService.php",
             "role": "baseline_dependency",
-            "sha256": "c18c99e9c69ca06a085ec2a0e3688fa76f217c7495877c7809cb07f776e06bae",
-            "size": 21173
+            "hash_mode": "text-lf-sha256",
+            "sha256": "985772499c17ec200059f842f3d2929566924e47d05434dcc478590a1b9f1d0a",
+            "bytes_on_build_host": 21173
         },
         {
             "path": "app/Services/Instance/InstanceVersionService.php",
             "role": "version_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "b51cb4394d69ad87b5725baf76729b25d7de0bcd81ab3181f4423fa88a1153f7",
-            "size": 1324
+            "bytes_on_build_host": 1324
         },
         {
             "path": "app/Services/Instance/InstanceIdentityService.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "dddc22c8d6b82b11801378d3ed7f191c933585ae02315b1d2588f17ae7eaca73",
-            "size": 1435
+            "bytes_on_build_host": 1435
         },
         {
             "path": "app/Services/Instance/InstanceFeaturesService.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "348661032e1feb1b455c18b06230fa5522e4c2be448924e1abcad9e70c2c5ea2",
-            "size": 2611
+            "bytes_on_build_host": 2611
         },
         {
             "path": "app/Services/Upgrade/LegacyBaselineAdoptionService.php",
             "role": "adoption_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "e475bb8a77dffab25fa46d9bc84f800ec8f7cc9e563d9b29cdc22c69bbcb4a81",
-            "size": 6556
+            "bytes_on_build_host": 6556
         },
         {
             "path": "app/Services/Upgrade/InstanceUpgradeService.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "94b586be814436d45f83cd1a65420df1b40bf68e3c6deb4821161eefd2628956",
-            "size": 8754
+            "bytes_on_build_host": 8754
         },
         {
             "path": "app/Services/Upgrade/FinancialAccountMovementsSchemaUpgrade.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "f41cc5211fbbc3fbab4cfbda47067ad8bcd23252eb480507ae022d59d11df245",
-            "size": 2644
+            "bytes_on_build_host": 2644
         },
         {
             "path": "app/Services/Upgrade/PaymentAllocationsSchemaUpgrade.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "59d3d88eb520698df16899ca98a40ebf724d24daac04b146729f505b9f970194",
-            "size": 2022
+            "bytes_on_build_host": 2022
         },
         {
             "path": "app/Services/Upgrade/ExpensesSchemaUpgrade.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "6ed1ab3e600ff01b66dd8a81bbc61ded13764857c774f855c2d75e03797b7d49",
-            "size": 4075
+            "bytes_on_build_host": 4075
         },
         {
             "path": "app/Services/Upgrade/Legacy/PhysicalSchemaInspector.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "7bc78ac01f36cff087d6fa6adc0a5a1035670ffba0a96c5c9c051a4d3108791e",
-            "size": 1453
+            "bytes_on_build_host": 1453
         },
         {
             "path": "app/Services/Fiscal/SatCatalogInfrastructureService.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "c23434ccf9cf7b3ed3790f1f6d70a595b7011d4e25cb7bba65e63114ea6888a1",
-            "size": 4561
+            "bytes_on_build_host": 4561
         },
         {
             "path": "app/Services/Fiscal/SatCatalogImporterService.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "2d5d75b9bb248b1be2b65afe4fa655f70d5d788f0904943685de188ca35f5ece",
-            "size": 10538
+            "bytes_on_build_host": 10538
         },
         {
             "path": "app/Services/Fiscal/SatCatalogTextNormalizer.php",
             "role": "upgrade_dependency",
+            "hash_mode": "text-lf-sha256",
             "sha256": "5246e77c05f4cfdee365e026305ea77714e55d6c3fb06653815b3c05a85b345c",
-            "size": 429
+            "bytes_on_build_host": 429
         },
         {
             "path": "resources/fiscal/catalogs/sat/manifest.json",
             "role": "catalog_manifest",
+            "hash_mode": "text-lf-sha256",
             "sha256": "a29620dcc84202443abf58d0fb678a5c5429ca823af19ae1875187e6e1d08d59",
-            "size": 68
+            "bytes_on_build_host": 68
         }
     ]
 }
