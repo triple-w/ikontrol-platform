@@ -40,8 +40,8 @@ foreach ($files as $path => $role) {
 }
 $manifest = [
     'schema_version'=>2,
-    'bootstrap_version'=>'legacy-bootstrap-1.1.4.2',
-    'canonical_version'=>'1.1.4',
+    'bootstrap_version'=>'legacy-bootstrap-1.1.5.1',
+    'canonical_version'=>'1.1.5',
     'generated_at'=>'2026-10-08T00:00:00Z',
     'policy'=>['additive_only'=>true,'overwrite'=>false,'database_writes'=>false,'text_checksum'=>'normalize CRLF and CR to LF before SHA-256','binary_checksum'=>'SHA-256 over physical bytes'],
     'files'=>$entries,

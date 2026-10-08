@@ -6,6 +6,7 @@ namespace App\Commands;
 use App\Services\Fiscal\FiscalIssuerResolver;
 use App\Services\Fiscal\Pac\FiscalPacCreditService;
 use App\Services\Fiscal\Stamps\FiscalStampAccountService;
+use App\Services\Fiscal\Stamps\FiscalStampBalanceService;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use RuntimeException;
@@ -27,7 +28,8 @@ final class FiscalIntegrationCredits extends BaseCommand
         $sync=CLI::getOption('sync')!==null;
         if($sync)throw new RuntimeException('PAC_PROVIDER_CREDITS_MUST_NOT_MUTATE_CLIENT_WALLET');
         if($sync&&((string)CLI::getOption('confirm')!=='PAC-DEVELOPMENT-SYNC'||$actor===null))throw new RuntimeException('La sincronización exige --confirm=PAC-DEVELOPMENT-SYNC y --actor=<id>.');
-        $before=(new FiscalStampAccountService($db))->getBalance((int)$issuer->id,'development');
+        $balances=new FiscalStampBalanceService($db);
+        $before=$balances->forIssuer((int)$issuer->id,'development');
         $result=(new FiscalPacCreditService($db))->consult((int)$issuer->id,$actor);
         CLI::write('provider: '.$result['provider']);CLI::write('environment: '.$result['environment']);
         CLI::write('available_credits: '.$result['available_credits']);CLI::write('provider_code: '.($result['provider_code']??'—'));
@@ -36,7 +38,7 @@ final class FiscalIntegrationCredits extends BaseCommand
         if($sync){
             $movement=(new FiscalStampAccountService($db))->synchronizeDevelopment((int)$issuer->id,(int)$result['available_credits'],(int)$result['consultation_id'],$actor);
             CLI::write('sync_reason: '.$movement->reason);CLI::write('sync_adjustment: '.$movement->quantity);
-            $after=(new FiscalStampAccountService($db))->getBalance((int)$issuer->id,'development');
+            $after=$balances->forIssuer((int)$issuer->id,'development');
             CLI::write('local_available_after: '.$after['available']);CLI::write('local_reserved_after: '.$after['reserved']);
         }
     }

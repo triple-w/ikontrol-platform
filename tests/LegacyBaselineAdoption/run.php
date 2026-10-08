@@ -53,9 +53,9 @@ $executed=$service->adopt();
 $ok($executed['written']&&$executed['already_adopted']&&(new InstanceVersionService($valid))->current()==='1.0.0','execute registra exclusivamente iKontrol 1.0.0');
 $countBefore=$valid->table('app_schema_versions')->countAllResults();$again=$service->adopt();
 $ok(!$again['written']&&$again['status']==='ALREADY_ADOPTED'&&$valid->table('app_schema_versions')->countAllResults()===$countBefore,'segunda ejecución es idempotente');
-$plan=(new InstanceUpgradeService($valid))->plan('1.1.4');
+$plan=(new InstanceUpgradeService($valid))->plan('1.1.5');
 $paths=array_map(static fn(array$p):string=>$p['from'].'->'.$p['to'],$plan['packages']);
-$ok($plan['compatible']&&$paths===['1.0.0->1.1.0','1.1.0->1.1.1','1.1.1->1.1.2','1.1.2->1.1.3','1.1.3->1.1.4'],'adopción habilita el plan completo 1.0.0 a 1.1.4');
+$ok($plan['compatible']&&$paths===['1.0.0->1.1.0','1.1.0->1.1.1','1.1.1->1.1.2','1.1.2->1.1.3','1.1.3->1.1.4','1.1.4->1.1.5'],'adopción habilita el plan completo 1.0.0 a 1.1.5');
 $ok(!$valid->tableExists('financial_accounts')&&!$valid->tableExists('sat_catalog_installations'),'adopción no exige ni crea cuentas financieras o catálogos SAT');
 
 $incomplete=$connect('incomplete_');$fixture($incomplete,['omit'=>'invoice_items']);$result=(new LegacyBaselineAdoptionService($incomplete))->inspect();

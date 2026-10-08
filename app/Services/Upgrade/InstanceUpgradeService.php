@@ -42,6 +42,11 @@ final class InstanceUpgradeService
             'release_id' => 'ikontrol-1.1.4-canonical-stamps-and-sale-statuses',
             'steps' => ['record_version'],
         ],
+        '1.1.4' => [
+            'to' => '1.1.5',
+            'release_id' => 'ikontrol-1.1.5-canonical-stamp-wallet-resolution',
+            'steps' => ['record_version'],
+        ],
     ];
 
     public function __construct(private BaseConnection $db, private ?string $catalogRoot = null)

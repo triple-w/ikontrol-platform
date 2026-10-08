@@ -8,7 +8,7 @@ use CodeIgniter\Config\BaseConfig;
 
 final class Version extends BaseConfig
 {
-    public const VERSION = '1.1.4';
-    public const RELEASE_DATE = '2026-10-07';
-    public const RELEASE_REF = 'release/1.1.4';
+    public const VERSION = '1.1.5';
+    public const RELEASE_DATE = '2026-10-08';
+    public const RELEASE_REF = 'release/1.1.5';
 }

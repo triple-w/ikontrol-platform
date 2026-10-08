@@ -85,13 +85,13 @@ Un error `Command "ikontrol:version" not found` no debe mapearse a `UNREACHABLE`
 
 ## Preparación del paquete
 
-Usar una copia limpia del release canónico 1.1.4 como fuente temporal. No cambiar el remote de Navika.
+Usar una copia limpia del release canónico 1.1.5 como fuente temporal. No cambiar el remote de Navika.
 
 ```bash
-cd /ruta/temporal/ikontrol-platform-1.1.4
+cd /ruta/temporal/ikontrol-platform-1.1.5
 php tools/legacy-bootstrap/build-manifest.php
 php tools/legacy-bootstrap/install.php \
-  --source=/ruta/temporal/ikontrol-platform-1.1.4 \
+  --source=/ruta/temporal/ikontrol-platform-1.1.5 \
   --target=/home/tws001/navika.ikontrol.solutions \
   --json
 ```
@@ -105,8 +105,8 @@ Antes de aplicar, respaldar por el procedimiento operativo habitual la base y el
 Sólo después de aprobar el dry-run:
 
 ```bash
-php /ruta/temporal/ikontrol-platform-1.1.4/tools/legacy-bootstrap/install.php \
-  --source=/ruta/temporal/ikontrol-platform-1.1.4 \
+php /ruta/temporal/ikontrol-platform-1.1.5/tools/legacy-bootstrap/install.php \
+  --source=/ruta/temporal/ikontrol-platform-1.1.5 \
   --target=/home/tws001/navika.ikontrol.solutions \
   --execute --yes --json
 ```
@@ -114,7 +114,7 @@ php /ruta/temporal/ikontrol-platform-1.1.4/tools/legacy-bootstrap/install.php \
 El instalador crea un recibo en:
 
 ```text
-/home/tws001/navika.ikontrol.solutions/.ikontrol-legacy-bootstrap/legacy-bootstrap-1.1.4.2.json
+/home/tws001/navika.ikontrol.solutions/.ikontrol-legacy-bootstrap/legacy-bootstrap-1.1.5.1.json
 ```
 
 Después, desde Navika:
@@ -134,7 +134,7 @@ Si la adopción devuelve `READY_TO_ADOPT`, ejecutar explícitamente:
 ```bash
 php spark ikontrol:adopt-baseline --execute --yes --json
 php spark ikontrol:version --json
-php spark ikontrol:upgrade:plan --target=1.1.4 --json
+php spark ikontrol:upgrade:plan --target=1.1.5 --json
 ```
 
 No ejecutar todavía `ikontrol:upgrade` en Navika hasta reconciliar el código cliente con Platform y suministrar los artefactos SAT oficiales. En el estado actual del repositorio, `resources/fiscal/catalogs/sat/manifest.json` no declara catálogos activos; el paso `sat_catalog_import` abortaría de forma segura.
@@ -146,8 +146,8 @@ Antes de adoptar 1.0.0, el rollback consiste en retirar únicamente los archivos
 Obtener el inventario verificable, sin borrar nada:
 
 ```bash
-php /ruta/temporal/ikontrol-platform-1.1.4/tools/legacy-bootstrap/install.php \
-  --source=/ruta/temporal/ikontrol-platform-1.1.4 \
+php /ruta/temporal/ikontrol-platform-1.1.5/tools/legacy-bootstrap/install.php \
+  --source=/ruta/temporal/ikontrol-platform-1.1.5 \
   --target=/home/tws001/navika.ikontrol.solutions \
   --rollback-plan --json
 ```
@@ -173,4 +173,4 @@ php tests/LegacyBootstrapInstaller/run.php
 php tests/LegacyBaselineAdoption/run.php
 ```
 
-La primera suite valida manifest/checksums, dry-run, instalación aditiva, recibo, idempotencia, bloqueo previo por conflictos y preservación byte a byte de archivos operativos. La segunda valida compatibilidad, adopción 1.0.0 y el plan completo hasta 1.1.4 usando esquemas MySQL temporales.
+La primera suite valida manifest/checksums, dry-run, instalación aditiva, recibo, idempotencia, bloqueo previo por conflictos y preservación byte a byte de archivos operativos. La segunda valida compatibilidad, adopción 1.0.0 y el plan completo hasta 1.1.5 usando esquemas MySQL temporales.

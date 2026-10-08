@@ -28,6 +28,9 @@ final class FiscalStampAdminService
                 ? (string)$profile->environment
                 : FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));
             $balance = $balances->forIssuer((int)$profile->id, $environment);
+            if ($balance['account_id'] && $balance['wallet_issuer_profile_id'] !== (int) $profile->id) {
+                continue;
+            }
             $account = $balance['account_id'] ? $this->db->table('fiscal_stamp_accounts')->select('updated_at')->where('id',$balance['account_id'])->get(1)->getRow() : null;
             $rows[] = [
                 'issuer_profile_id'=>(int)$profile->id,'rfc'=>(string)$profile->rfc,'legal_name'=>(string)$profile->legal_name,

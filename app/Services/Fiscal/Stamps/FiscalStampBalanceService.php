@@ -12,44 +12,35 @@ final class FiscalStampBalanceService
 {
     public function __construct(
         private ?BaseConnection $db = null,
-        private ?FiscalStampAccountService $accounts = null
+        private ?FiscalStampAccountService $accounts = null,
+        private ?FiscalStampWalletResolver $resolver = null
     ) {
         $this->db ??= db_connect();
         $this->accounts ??= new FiscalStampAccountService($this->db);
+        $this->resolver ??= new FiscalStampWalletResolver($this->db);
     }
 
-    /** @return array{issuer_profile_id:int,environment:string,account_id:?int,available:int,reserved:int,usable:int,status:string} */
+    /** @return array{issuer_profile_id:int,wallet_issuer_profile_id:?int,environment:string,account_id:?int,available:int,reserved:int,consumed:int,usable:int,status:string} */
     public function forIssuer(int $issuerId, ?string $environment = null): array
     {
         $environment = $this->environment($environment);
-        $issuer = $this->db->table('fiscal_profiles')
-            ->select('id,environment,status,deleted')
-            ->where(['id'=>$issuerId,'profile_type'=>'issuer'])
-            ->get(1)->getRow();
-        if (! $issuer || (int)($issuer->deleted ?? 0) !== 0) {
-            return $this->empty($issuerId, $environment, 'issuer_missing');
+        $resolved = $this->resolver->resolve($issuerId, $environment);
+        $account = $resolved['account'];
+        if (! $account) {
+            return $this->empty($issuerId, $environment, $resolved['status']);
         }
-        $issuerEnvironment = $this->explicitEnvironment((string)($issuer->environment ?? ''));
-        if ($issuerEnvironment !== null && $issuerEnvironment !== $environment) {
-            return $this->empty($issuerId, $environment, 'environment_mismatch');
-        }
-
-        $balance = $this->accounts->getBalance($issuerId, $environment);
-        $account = $this->db->table('fiscal_stamp_accounts')->select('id')
-            ->where('issuer_profile_id', $issuerId);
-        if ($this->db->fieldExists('environment', 'fiscal_stamp_accounts')) {
-            $account->where('environment', $environment);
-        }
-        $accountId = $account->get(1)->getRow();
-        $available = max(0, (int)$balance['available']);
-        $reserved = max(0, (int)$balance['reserved']);
-        $status = (string)$balance['status'];
+        $available = max(0, (int) $account->available_balance);
+        $reserved = max(0, (int) $account->reserved_balance);
+        $status = (string) $account->status;
+        $consumed = $this->consumed((int) $account->id);
         return [
             'issuer_profile_id'=>$issuerId,
+            'wallet_issuer_profile_id'=>(int) $account->issuer_profile_id,
             'environment'=>$environment,
-            'account_id'=>$accountId ? (int)$accountId->id : null,
+            'account_id'=>(int) $account->id,
             'available'=>$available,
             'reserved'=>$reserved,
+            'consumed'=>$consumed,
             'usable'=>$status === 'active' ? $available : 0,
             'status'=>$status,
         ];
@@ -77,15 +68,26 @@ final class FiscalStampBalanceService
         return $environment === 'production' ? 'production' : FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'));
     }
 
-    private function explicitEnvironment(string $environment): ?string
+    /** @return list<array<string,mixed>> */
+    public function recentForIssuer(int $issuerId, int $limit = 20, ?string $environment = null): array
     {
-        $environment = strtolower(trim($environment));
-        if (in_array($environment, ['local','sandbox','test','testing','development'], true)) return 'development';
-        return $environment === 'production' ? 'production' : null;
+        $balance = $this->forIssuer($issuerId, $environment);
+        if (! $balance['account_id']) return [];
+        return $this->db->table('fiscal_stamp_movements')->where('stamp_account_id', $balance['account_id'])
+            ->orderBy('id', 'DESC')->limit(max(1, min(100, $limit)))->get()->getResultArray();
+    }
+
+    private function consumed(int $accountId): int
+    {
+        $types = ['document_consumption', 'reconciliation_consumption', 'cancellation_request', 'cancellation_status_query', 'cancellation_consumption', 'adjustment_debit'];
+        $row = $this->db->table('fiscal_stamp_movements')
+            ->select("COALESCE(SUM(CASE WHEN movement_type='adjustment_debit' THEN ABS(quantity) ELSE quantity END),0) consumed", false)
+            ->where('stamp_account_id', $accountId)->whereIn('movement_type', $types)->get()->getRow();
+        return max(0, (int) ($row->consumed ?? 0));
     }
 
     private function empty(int $issuerId, string $environment, string $status): array
     {
-        return ['issuer_profile_id'=>$issuerId,'environment'=>$environment,'account_id'=>null,'available'=>0,'reserved'=>0,'usable'=>0,'status'=>$status];
+        return ['issuer_profile_id'=>$issuerId,'wallet_issuer_profile_id'=>null,'environment'=>$environment,'account_id'=>null,'available'=>0,'reserved'=>0,'consumed'=>0,'usable'=>0,'status'=>$status];
     }
 }

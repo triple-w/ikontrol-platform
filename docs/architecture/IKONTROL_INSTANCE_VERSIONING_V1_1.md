@@ -38,15 +38,20 @@ The repository currently contains only the empty infrastructure manifest. The te
 
 ## Directed versioning
 
-`InstanceVersionService` reads `app_schema_versions`. `InstanceUpgradeService` currently declares one package, 1.0.0 → 1.1.0, with a deterministic release checksum and these resumable steps:
+`InstanceVersionService` reads `app_schema_versions`. `InstanceUpgradeService` declares a contiguous directed path from 1.0.0 through 1.1.5. Every package has a deterministic release checksum and resumable steps. Schema/data steps are explicit; code-only releases 1.1.4 and 1.1.5 contain only `record_version`.
 
-1. SAT catalog schema;
-2. SAT catalog import;
-3. stable instance UUID;
-4. feature defaults;
-5. version record.
+The current path is:
+
+1. `1.0.0 -> 1.1.0`: SAT catalog schema/import, stable instance UUID, feature defaults and version record;
+2. `1.1.0 -> 1.1.1`: financial ledger compatibility and version record;
+3. `1.1.1 -> 1.1.2`: payment allocation compatibility and version record;
+4. `1.1.2 -> 1.1.3`: expense financial compatibility and version record;
+5. `1.1.3 -> 1.1.4`: version record;
+6. `1.1.4 -> 1.1.5`: canonical stamp-wallet resolution version record.
 
 `instance_upgrade_runs` and `instance_upgrade_steps` record start, completion/failure, versions, release identifier/checksum, step results and errors. A failed run resumes completed steps; a completed package is not executed again. Planning is read-only.
+
+The directed updater does not copy or deploy PHP files. The target instance must already be running the code for the target release before `ikontrol:upgrade` records or applies its database/data steps. The repository has a checksum-verified additive legacy bootstrap for installing the minimum management agent, but no general release archive builder/deployer connected to iKontrolAdmin. Full customer deployment requires a separate service that verifies a release artifact, preserves instance-owned paths (`.env`, `writable/`, uploads/files, private fiscal material, branding and declared overrides), stages code outside the live directory, switches atomically, runs the directed upgrade and health checks, and restores code plus the pre-upgrade database backup on failure. Unmanaged `git pull` is not the deployment contract.
 
 ## Feature flags
 
@@ -64,8 +69,8 @@ The contract must never expose CSD/PAC encryption keys, PAC credentials, CSD pas
 php spark ikontrol:legacy-upgrade:smartfree --database=LOCAL_COPY --dry-run --json
 php spark ikontrol:legacy-upgrade:smartfree --database=LOCAL_COPY --execute --yes --json
 php spark ikontrol:version --json
-php spark ikontrol:upgrade:plan --target=1.1.0 --json
-php spark ikontrol:upgrade --target=1.1.0 --yes --json
+php spark ikontrol:upgrade:plan --target=1.1.5 --json
+php spark ikontrol:upgrade --target=1.1.5 --yes --json
 php spark fiscal:catalogs:update --dry-run --json
 php spark ikontrol:fiscal:status --json
 ```

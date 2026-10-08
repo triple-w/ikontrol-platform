@@ -2,7 +2,7 @@
     <div class="page-title clearfix">
         <h4>Facturación · Facturas</h4>
         <div class="title-button-group">
-            <?php if(!empty($can_view_stamp_balance)){ ?><a class="btn btn-default" href="<?php echo get_uri('fiscal/stamps/balance'); ?>">Timbres disponibles: <?php echo (int)($stamp_balance['available'] ?? 0); ?></a><?php } ?>
+            <?php if(!empty($can_view_stamp_balance)){ ?><a class="btn btn-default" href="<?php echo get_uri('fiscal/stamps/balance'); ?>">Timbres disponibles: <?php echo (int)($stamp_balance['usable'] ?? 0); ?></a><?php } ?>
             <a class="btn btn-default" href="<?php echo get_uri('fiscal/pdf-templates'); ?>">
                 <i data-feather="layout" class="icon-16"></i> Plantillas PDF
             </a>
