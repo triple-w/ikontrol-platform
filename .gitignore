@@ -8,6 +8,7 @@ writable/cache/*
 writable/logs/*
 writable/session/*
 writable/debugbar/*
+writable/releases/*
 
 .DS_Store
 Thumbs.db
