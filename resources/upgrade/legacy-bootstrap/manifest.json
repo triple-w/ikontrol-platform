@@ -15,8 +15,8 @@
             "path": "app/Config/Version.php",
             "role": "canonical_version",
             "hash_mode": "text-lf-sha256",
-            "sha256": "7f6cb86f50b25b428b9478cfd1c7bab0eebcd6103b0c46ea8a2b4b99e0e561ce",
-            "bytes_on_build_host": 261
+            "sha256": "fdd4cf2e9a46893bdf8885ba2643f1f0c24947e530883d713898282c95d43e7f",
+            "bytes_on_build_host": 254
         },
         {
             "path": "app/Commands/IkontrolVersion.php",

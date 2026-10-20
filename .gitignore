@@ -9,6 +9,7 @@ writable/logs/*
 writable/session/*
 writable/debugbar/*
 writable/releases/*
+/dist/
 
 .DS_Store
 Thumbs.db
