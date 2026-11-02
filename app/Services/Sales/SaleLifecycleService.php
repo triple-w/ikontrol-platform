@@ -61,8 +61,38 @@ final class SaleLifecycleService
         $this->db->transBegin();try{$sale=$this->db->DBDriver==='SQLite3'?$this->db->table('invoices')->where('id',$id)->get(1)->getRow():$this->db->query('SELECT * FROM '.$this->db->prefixTable('invoices').' WHERE id=? FOR UPDATE',[$id])->getRow();if(!$sale||(int)$sale->deleted)throw new RuntimeException('SALE_NOT_FOUND');if((string)$sale->status==='cancelled'||(string)$sale->commercial_status==='cancelled')throw new RuntimeException('SALE_CANCELLED');$alreadyCanonical=(string)$sale->commercial_status==='closed'&&trim((string)($sale->closed_at??''))!=='';if(!$alreadyCanonical){$this->db->table('invoices')->where('id',$id)->update(['commercial_status'=>'closed','closed_at'=>get_current_utc_time(),'closed_by'=>$userId,'closure_reason'=>'Cierre automático posterior a timbrado CFDI']);$this->audit($id,$userId,'sale_closed_after_stamp',(string)$sale->commercial_status,'closed','CFDI timbrado');}$payment=(new SalePaymentStatusService($this->db))->synchronize($id);$this->db->transCommit();return['closed'=>true,'payment_status'=>$payment['status'],'balance'=>$payment['balance']];}catch(Throwable$e){$this->db->transRollback();throw$e;}
     }
 
-    public function canCancel(int$id,int$userId):array{try{$sale=$this->sale($id);if($sale->commercial_status==='cancelled')return$this->decision(false,'SALE_ALREADY_CANCELLED','La venta ya está cancelada.');(new FiscalSaleCancellationPolicy($this->db))->assertCanCancel($id);return$this->decision(true,'OK','La venta puede cancelarse.');}catch(Throwable$e){return$this->decision(false,$e->getMessage(),'La venta tiene operaciones fiscales que impiden cancelarla.',[$e->getMessage()]);}}
-    public function cancel(int$id,int$userId,string$reason):void{if(trim($reason)==='')throw new RuntimeException('SALE_CANCELLATION_REASON_REQUIRED');$decision=$this->canCancel($id,$userId);if(!$decision['allowed'])throw new RuntimeException($decision['code']);(new FiscalSaleCancellationPolicy($this->db))->cancel($id,$userId,$reason);$this->db->table('invoices')->where('id',$id)->update(['commercial_status'=>'cancelled']);$this->audit($id,$userId,'sale_cancelled',null,'cancelled',$reason);}
+    public function canCancel(int$id,int$userId):array
+    {
+        try{
+            $sale=$this->sale($id);
+            if($sale->commercial_status==='cancelled'||$sale->status==='cancelled')return$this->decision(false,'SALE_ALREADY_CANCELLED','La venta ya está cancelada.');
+            (new FiscalSaleCancellationPolicy($this->db))->assertCanCancel($id);
+            return$this->decision(true,'OK','La venta puede cancelarse.');
+        }catch(Throwable$e){
+            $message=$e->getMessage()==='SALE_HAS_ACTIVE_PAYMENT_ALLOCATIONS'
+                ?'La venta tiene pagos aplicados. Retire o cancele las aplicaciones antes de cancelar la venta.'
+                :'La venta tiene operaciones fiscales que impiden cancelarla.';
+            return$this->decision(false,$e->getMessage(),$message,[$e->getMessage()]);
+        }
+    }
+    public function cancel(int$id,int$userId,string$reason):void
+    {
+        if(trim($reason)==='')throw new RuntimeException('SALE_CANCELLATION_REASON_REQUIRED');
+        $this->db->transBegin();
+        try{
+            $sale=$this->db->query('SELECT * FROM '.$this->db->prefixTable('invoices').' WHERE id=? AND deleted=0 FOR UPDATE',[$id])->getRow();
+            if(!$sale)throw new RuntimeException('SALE_NOT_FOUND');
+            $administrativeCancelled=(string)$sale->status==='cancelled';
+            $commercialCancelled=(string)$sale->commercial_status==='cancelled';
+            if($administrativeCancelled&&$commercialCancelled){$this->db->transCommit();return;}
+            if($administrativeCancelled!==$commercialCancelled)throw new RuntimeException('SALE_CANCELLATION_STATE_INCONSISTENT');
+            (new FiscalSaleCancellationPolicy($this->db))->cancelWithinTransaction($id,$userId,$reason);
+            if(!$this->db->table('invoices')->where(['id'=>$id,'deleted'=>0])->update(['commercial_status'=>'cancelled']))throw new RuntimeException('SALE_COMMERCIAL_CANCELLATION_FAILED');
+            $this->audit($id,$userId,'sale_cancelled',(string)$sale->commercial_status,'cancelled',$reason);
+            if(!$this->db->transStatus())throw new RuntimeException('SALE_CANCELLATION_FAILED');
+            $this->db->transCommit();
+        }catch(Throwable$e){$this->db->transRollback();throw$e;}
+    }
     private function hasStampedCfdi(int$id):bool{if($this->db->table('fiscal_documents d')->join('fiscal_document_stamps s','s.fiscal_document_id=d.id')->where(['d.invoice_id'=>$id,'d.deleted'=>0])->where('s.uuid !=','')->countAllResults())return true;if($this->db->table('fiscal_document_sales a')->join('fiscal_document_stamps s','s.fiscal_document_id=a.fiscal_document_id')->where('a.sale_id',$id)->where('s.uuid !=','')->countAllResults())return true;return(bool)$this->db->table('fiscal_draft_sales a')->join('fiscal_drafts d','d.id=a.fiscal_draft_id')->join('fiscal_document_stamps s','s.fiscal_document_id=d.fiscal_document_id')->where('a.sale_id',$id)->where('s.uuid !=','')->countAllResults();}
     private function sale(int$id):object{$sale=$this->db->table('invoices')->where(['id'=>$id,'deleted'=>0])->get(1)->getRow();if(!$sale)throw new RuntimeException('SALE_NOT_FOUND');return$sale;}
     private function audit(int$id,int$userId,string$event,?string$old,?string$new,?string$reason):void{$this->db->table('commercial_lifecycle_audit')->insert(['entity_type'=>'sale','entity_id'=>$id,'event'=>$event,'old_status'=>$old,'new_status'=>$new,'reason'=>mb_substr(trim((string)$reason),0,500),'user_id'=>$userId,'created_at'=>get_current_utc_time()]);}

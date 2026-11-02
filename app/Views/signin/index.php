@@ -4,6 +4,12 @@
         <?php echo view('includes/head'); ?>
     </head>
     <body class="public-view signin-page">
+        <?php if (config('Fiscal')->labMode) { ?>
+            <div id="ikontrol-rc1-lab-banner" role="alert" style="position:fixed;z-index:20000;left:0;right:0;top:0;background:#8b0000;color:#fff;text-align:center;font-weight:700;padding:6px 12px;letter-spacing:.03em;">
+                iKONTROL 1.1.6 RC1 — ENTORNO DE PRUEBAS: SIN VALIDEZ FISCAL
+            </div>
+            <style>body{padding-top:34px!important}</style>
+        <?php } ?>
         <?php
         if (get_setting("show_background_image_in_signin_page") === "yes") {
             $background_url = get_file_from_setting("signin_page_background");

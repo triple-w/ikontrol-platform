@@ -104,7 +104,9 @@
                                 "name" => "invoice_client_id",
                                 "value" => $model_info->client_id,
                                 "class" => "form-control",
-                                "placeholder" => app_lang('client')
+                                "placeholder" => app_lang('client'),
+                                "data-rule-required" => true,
+                                "data-msg-required" => "Selecciona un cliente para guardar la venta."
                             ));
                             ?>
                         </div>
@@ -289,6 +291,9 @@
                 }
             },
             onAjaxSuccess: function(result) {
+                if (!result.success && result.field_errors) {
+                    $("#invoice-form").data("validator").showErrors(result.field_errors);
+                }
                 if (!result.success && result.next_recurring_date_error) {
                     $("#next_recurring_date").val(result.next_recurring_date_value);
                     $("#next_recurring_date_container").removeClass("hide");

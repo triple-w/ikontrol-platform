@@ -33,7 +33,8 @@ final class FiscalPacAdapterFactory
 
     private function createFake(Fiscal $fiscal): PacAdapterInterface
     {
-        if ($fiscal->runtimeMode !== 'automated_test' || ENVIRONMENT !== 'testing' || PHP_SAPI !== 'cli') {
+        $automated = $fiscal->runtimeMode === 'automated_test' && ENVIRONMENT === 'testing' && PHP_SAPI === 'cli';
+        if (! $automated && ! $fiscal->allowsLabFakePac()) {
             throw new RuntimeException('FakePacAdapter sólo está permitido en pruebas automatizadas CLI.');
         }
         return $this->fake ?? new FakePacAdapter($fiscal->fakePacScenario ?? 'success');

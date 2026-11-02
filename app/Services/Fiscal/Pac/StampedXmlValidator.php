@@ -28,7 +28,9 @@ final class StampedXmlValidator
         if(!preg_match('/^[0-9A-F]{8}-[0-9A-F]{4}-[1-5][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/',$uuid))throw new RuntimeException('El TimbreFiscalDigital contiene un UUID inválido.');
         $required=['Version','FechaTimbrado','RfcProvCertif','SelloCFD','NoCertificadoSAT','SelloSAT'];
         foreach($required as $name)if(trim($tfd->getAttribute($name))==='')throw new RuntimeException("El TimbreFiscalDigital no contiene {$name}.");
-        if(config('Fiscal')->runtimeMode!=='automated_test'&&strtoupper($tfd->getAttribute('RfcProvCertif'))==='AAA010101AAA')throw new RuntimeException('La respuesta contiene un timbre artificial no permitido.');
+        $fiscal=config('Fiscal');
+        $fakeLab=$fiscal->pacAdapter==='fake'&&$fiscal->allowsLabFakePac();
+        if($fiscal->runtimeMode!=='automated_test'&&!$fakeLab&&strtoupper($tfd->getAttribute('RfcProvCertif'))==='AAA010101AAA')throw new RuntimeException('La respuesta contiene un timbre artificial no permitido.');
         $this->validateTfdSchema($tfd);
         $this->compareHeaders($signed->documentElement,$root);
         $expectedSeal=$signed->documentElement->getAttribute('Sello');

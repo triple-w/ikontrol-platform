@@ -10,9 +10,12 @@ final class TimbradorXpress extends BaseConfig
 {
     public const SANDBOX_URL='https://dev.timbradorxpress.mx/api/rest/servicio/';
     public const PRODUCTION_URL='https://app.timbradorxpress.mx/api/rest/servicio/';
+    public const SANDBOX_SOAP_WSDL='https://dev.timbradorxpress.mx/ws/servicio.do?wsdl';
+    public const PRODUCTION_SOAP_WSDL='https://app.timbradorxpress.mx/ws/servicio.do?wsdl';
     public string $environment;
     public string $apiKey;
     public string $baseUrl;
+    public string $soapWsdl;
     public int $connectTimeout;
     public int $requestTimeout;
     public bool $productionEnabled;
@@ -33,6 +36,7 @@ final class TimbradorXpress extends BaseConfig
         $production=(string)env('TIMBRADORXPRESS_BASE_URL_PRODUCTION',self::PRODUCTION_URL);
         if($sandbox!==self::SANDBOX_URL||$production!==self::PRODUCTION_URL)throw new RuntimeException('Los endpoints TimbradorXpress no pertenecen a la lista permitida.');
         $this->baseUrl=$this->environment==='sandbox'?$sandbox:$production;
+        $this->soapWsdl=$this->environment==='sandbox'?self::SANDBOX_SOAP_WSDL:self::PRODUCTION_SOAP_WSDL;
         $this->apiKey=trim((string)env($this->environment==='sandbox'?'TIMBRADORXPRESS_APIKEY_SANDBOX':'TIMBRADORXPRESS_APIKEY_PRODUCTION',''));
         $this->connectTimeout=max(2,min(30,(int)env('TIMBRADORXPRESS_CONNECT_TIMEOUT',10)));
         $this->requestTimeout=max(5,min(120,(int)env('TIMBRADORXPRESS_REQUEST_TIMEOUT',60)));

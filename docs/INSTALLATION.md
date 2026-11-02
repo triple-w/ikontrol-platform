@@ -17,6 +17,16 @@ Esta guía instala una instancia nueva de iKontrol. No use este procedimiento pa
 5. Complete empresa, perfiles fiscales, impuestos comerciales, métodos de pago, cuentas financieras y series antes de operar. Cargue CSD y habilite el ambiente fiscal sólo después de comprobar sandbox.
 6. Ejecute `php tests/CleanInstallCanonical/run.php` contra un grupo `clean_build` que apunte a la nueva base.
 
+## Configuración compartida de servicios fiscales
+
+La instalación limpia hereda únicamente valores no secretos y política versionados en `.env.example` y las clases `Config`: identificador del adaptador autorizado, endpoints oficiales por ambiente, timeouts acotados, política TLS/allowlist, proveedor PDF, capacidades habilitables y defaults de plantillas generales. Estos valores son defaults de software; `fiscal.enabled`, timbrado real, PDF externo y producción permanecen cerrados hasta una decisión de operación. La configuración de WSTools33 es independiente y no se necesita para timbrar.
+
+No forman parte de una plantilla común ni del instalador los API keys del PAC, llaves maestras, RFC, CSD, contraseña CSD, series, folios, documentos, mappings fiscales, logos ni saldo del monedero local. La cuenta comercial del proveedor PAC pertenece a la operación central de iKontrol; cada instalación conserva y audita su propio monedero local.
+
+No se distribuyen credenciales maestras desde Git, `.env.example` o una base compartida. Si una transición temporal exige aprovisionarlas por instancia, la operación debe recibir un secreto de corta duración desde un gestor externo, comprobar la identidad de la instancia, escribirlo con permisos de sistema restringidos fuera del control de versiones, auditar actor/instancia/rotación sin registrar el valor y revocarlo al terminar. Este mecanismo no está implementado aquí; no debe sustituirse por copiar `.env`. La alternativa preferida es un broker PAC central con autenticación por instancia y sin exponer la credencial maestra.
+
+Contrato de integración futuro para iKontrolAdmin: consumir un manifiesto de capacidades y configuración no secreta versionado; solicitar al servicio seguro de aprovisionamiento únicamente secretos destinados a una instancia autenticada; aplicar por separado políticas comunes y secretos efímeros; no leer ni copiar datos fiscales o saldo de otra instancia. Esta tarea no modifica Admin.
+
 ## Datos incluidos
 
 El baseline incluye un administrador inicial, roles/permisos RISE, compañía vacía, métodos de pago y el impuesto administrativo heredado. El instalador agrega catálogos SAT mínimos. No crea clientes, proveedores, artículos, ventas, cobros, documentos fiscales, cuentas bancarias, series fiscales activas ni branding de cliente. Cree Público en General y Exportación sólo si la operación fiscal de esa instancia los requiere.

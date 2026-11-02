@@ -8,7 +8,7 @@ $configurePdfAllowed = !empty($configure_pdf_allowed);
   <div class="modal-body">
    <p>Se volverá a generar la representación PDF utilizando el XML timbrado y la plantilla configurada.</p>
    <p><strong>El UUID y el XML no cambiarán.</strong></p>
-   <dl><dt>Documento</dt><dd class="fiscal-pdf-regeneration-document"></dd><dt>UUID</dt><dd><code class="fiscal-pdf-regeneration-uuid"></code></dd><dt>Plantilla</dt><dd class="fiscal-pdf-regeneration-template"></dd></dl>
+   <dl><dt>Documento</dt><dd class="fiscal-pdf-regeneration-document"></dd><dt>UUID</dt><dd><code class="fiscal-pdf-regeneration-uuid"></code></dd><dt>Plantilla</dt><dd class="fiscal-pdf-regeneration-template"></dd><dt>Origen</dt><dd class="fiscal-pdf-regeneration-template-source"></dd></dl>
    <div class="fiscal-pdf-regeneration-progress text-info"></div>
    <div class="fiscal-pdf-regeneration-error alert alert-danger d-none"></div>
    <?php if($configurePdfAllowed): ?><a class="btn btn-default fiscal-pdf-configure d-none" href="<?php echo get_uri('fiscal/pdf-templates'); ?>">Configurar plantilla</a><?php endif; ?>
@@ -24,6 +24,7 @@ $(function(){
   $(modalElement).find('.fiscal-pdf-regeneration-document').text(pending.data('document-label')||('#'+pending.data('document-id')));
   $(modalElement).find('.fiscal-pdf-regeneration-uuid').text(pending.data('uuid')||'-');
   $(modalElement).find('.fiscal-pdf-regeneration-template').text(pending.data('template')||'-');
+  $(modalElement).find('.fiscal-pdf-regeneration-template-source').text(pending.data('template-source')||'No disponible');
   $(modalElement).find('.fiscal-pdf-regeneration-progress').text('');
   $(modalElement).find('.fiscal-pdf-regeneration-error,.fiscal-pdf-configure').addClass('d-none');
   $(modalElement).find('.fiscal-pdf-regeneration-submit').prop('disabled',false);

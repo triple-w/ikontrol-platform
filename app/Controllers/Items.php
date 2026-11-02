@@ -213,7 +213,8 @@ class Items extends Security_Controller {
             to_decimal_format($data->rate)
         );
 
-        $status = $data->fiscal_status ?: "not_configured";
+        $readiness=(new \App\Services\Fiscal\ItemFiscalReadinessService())->evaluate((int)$data->id);
+        $status=(string)($readiness['status']??'not_configured');
         $badge_class = $status === "ready" ? "bg-success" : ($status === "inactive" ? "bg-secondary" : ($status === "incomplete" ? "bg-warning" : "bg-light text-dark"));
         $row_data[] = "<span class='badge $badge_class'>" . app_lang("item_fiscal_status_" . $status) . "</span>";
         $row_data[] = $data->sat_product_code ?: "-";

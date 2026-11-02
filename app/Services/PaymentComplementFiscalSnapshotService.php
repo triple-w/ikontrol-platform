@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Services\Fiscal\FiscalDecimal;
 use App\Services\Fiscal\FiscalIssueDateService;
+use App\Services\Fiscal\FiscalPaymentMethodReadinessService;
 use RuntimeException;
 use Throwable;
 
@@ -29,9 +30,8 @@ final class PaymentComplementFiscalSnapshotService
         if (!$receiver) throw new RuntimeException('El cliente no tiene un perfil fiscal receptor vigente.');
 
         $payments = $this->db->table('payment_complement_payments p')
-            ->select('p.*,fm.sat_payment_form_code mapped_payment_form')
+            ->select('p.*,ip.payment_method_id')
             ->join('invoice_payments ip', 'ip.id=p.source_invoice_payment_id')
-            ->join('fiscal_payment_method_mappings fm', 'fm.payment_method_id=ip.payment_method_id AND fm.is_active=1', 'left')
             ->where(['p.payment_complement_id' => $id, 'p.deleted' => 0])->get()->getResult();
         $out = [
             'version' => 8,
@@ -45,11 +45,13 @@ final class PaymentComplementFiscalSnapshotService
         ];
         $normalizer = new PaymentComplementRelatedDocumentNormalizer($this->db);
         foreach ($payments as $payment) {
+            $mapping=(new FiscalPaymentMethodReadinessService($this->db))->forMethod((int)$payment->payment_method_id);if(!$mapping['ready'])throw new RuntimeException((string)$mapping['message']);
+            $effectiveForm=$payment->payment_form_code?:$mapping['sat_payment_form_code'];if((string)$effectiveForm!==(string)$mapping['sat_payment_form_code'])throw new RuntimeException('La FormaDePagoP no coincide con el mapping del pago administrativo efectivo.');
             $documents = $normalizer->forPayment($id, (int) $payment->id);
             if (!$documents) throw new RuntimeException('El pago fiscal no contiene documentos relacionados.');
             $entry = [
                 'id'=>(int)$payment->id,'source_invoice_payment_id'=>(int)$payment->source_invoice_payment_id,
-                'FechaPago'=>$payment->payment_date.'T12:00:00','FormaDePagoP'=>$payment->payment_form_code?:$payment->mapped_payment_form,
+                'FechaPago'=>$payment->payment_date.'T12:00:00','FormaDePagoP'=>$effectiveForm,
                 'MonedaP'=>$payment->currency_code?:'MXN','TipoCambioP'=>(string)$payment->exchange_rate,'Monto'=>(string)$payment->amount,
                 'NumOperacion'=>$payment->operation_number,'RfcEmisorCtaOrd'=>$payment->ordering_bank_rfc,'NomBancoOrdExt'=>$payment->ordering_bank_name,
                 'CtaOrdenante'=>$payment->ordering_account,'RfcEmisorCtaBen'=>$payment->beneficiary_bank_rfc,'CtaBeneficiario'=>$payment->beneficiary_account,

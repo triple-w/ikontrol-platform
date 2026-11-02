@@ -10,6 +10,7 @@ $selectedUse=$editing?(string)$draft->cfdi_use_code:(string)(($receiverProfile?-
 $selectedMethod=$editing?(string)$draft->payment_method_code:(string)($payment_suggestion['payment_method_code']??'');
 $selectedForm=$editing?(string)$draft->payment_form_code:(string)($payment_suggestion['payment_form_code']??'');
 $selectedIssuerId=(int)($issuer->id??0);
+$globalRequired=(bool)($global_information_required??false);$selectedGlobalPeriod=(string)($draft->global_periodicity??'');$selectedGlobalMonths=(string)($draft->global_months??'');$selectedGlobalYear=(string)($draft->global_year??'');
 ?>
 <div class="page-title clearfix"><h1><?php echo $editing?'Revisión fiscal · borrador #'.$draft->id:'Revisión fiscal'; ?></h1></div>
 <div class="card"><div class="card-body">
@@ -56,6 +57,7 @@ $selectedIssuerId=(int)($issuer->id??0);
  <div class="col-md-3"><label>Uso CFDI</label><select name="cfdi_use_code" class="form-control" required><option value="">Seleccionar</option><?php foreach($cfdi_uses as$row){ ?><option value="<?php echo esc($row->code); ?>" <?php echo$selectedUse===$row->code?'selected':''; ?>><?php echo esc($row->code.' · '.$row->description); ?></option><?php } ?></select><small>El cambio aplica sólo a este CFDI.</small></div>
 </div>
 <div class="alert alert-light mt10">Las preferencias maestras del cliente sólo precargan esta revisión y no se modifican al guardar.</div>
+<?php if($globalRequired){?><h4 class="mt20">Información Global</h4><div class="alert alert-info"><div class="row g-2"><div class="col-md-4"><label>Periodicidad</label><select name="global_periodicity" class="form-control" required><option value="">Seleccionar</option><?php foreach($global_periodicities as$code=>$label){?><option value="<?php echo esc($code);?>" <?php echo$selectedGlobalPeriod===$code?'selected':'';?>><?php echo esc($code.' · '.$label);?></option><?php }?></select></div><div class="col-md-4"><label>Meses</label><select name="global_months" class="form-control" required><option value="">Seleccionar</option><?php foreach($global_months as$code=>$label){?><option value="<?php echo esc($code);?>" <?php echo$selectedGlobalMonths===$code?'selected':'';?>><?php echo esc($code.' · '.$label);?></option><?php }?></select></div><div class="col-md-4"><label>Año</label><input name="global_year" class="form-control" value="<?php echo esc($selectedGlobalYear);?>" inputmode="numeric" pattern="[0-9]{4}" required></div></div><small>Debe corresponder al período real de las ventas seleccionadas.</small></div><?php }?>
 <input type="hidden" name="expedition_postal_code" id="expedition-postal-code" value="<?php echo esc($issuer->expedition_postal_code??''); ?>">
 <div id="draft-validation-message" class="mt15"></div>
 <div class="mt20"><button class="btn btn-primary" type="submit">Actualizar revisión y guardar borrador</button> <a class="btn btn-default" href="<?php echo get_uri('fiscal/drafts'); ?>">Cancelar</a></div>

@@ -27,7 +27,7 @@ final class CommercialItemTaxResolver
         if ($productId <= 0) {
             return $this->notReady('manual_line', $normalized['missing']??['La partida libre requiere configuración fiscal propia.'],$normalized??[]);
         }
-        if($override && !empty($override['ready'])){$issuer=$issuerId?$this->db->table('fiscal_profiles')->where('id',$issuerId)->get(1)->getRow():(new FiscalIssuerResolver($this->db))->resolve($companyId,config('Fiscal')->environment);$mode=(string)($issuer->tax_pricing_mode??'tax_inclusive');$resolved=array_merge($override,['source'=>'item_override','prices_include_tax'=>in_array($mode,['tax_inclusive','preserve_total'],true),'pricing_mode'=>$mode]);}else{$resolved=(new InvoiceItemTaxResolver($this->db))->resolveProduct($productId,$companyId,$issuerId);}
+        if($override && !empty($override['ready'])){$issuer=$issuerId?$this->db->table('fiscal_profiles')->where('id',$issuerId)->get(1)->getRow():(new FiscalIssuerResolver($this->db))->resolve($companyId,FiscalRuntimeContext::fiscalEnvironment(config('Fiscal')));$mode=(string)($issuer->tax_pricing_mode??'tax_inclusive');$resolved=array_merge($override,['source'=>'item_override','prices_include_tax'=>in_array($mode,['tax_inclusive','preserve_total'],true),'pricing_mode'=>$mode]);}else{$resolved=(new InvoiceItemTaxResolver($this->db))->resolveProduct($productId,$companyId,$issuerId);}
         return $this->calculate($this->pricing($resolved,$priceOrigin), $quantity, $unitPrice, $discount, 0);
     }
 

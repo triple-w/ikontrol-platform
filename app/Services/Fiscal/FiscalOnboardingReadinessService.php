@@ -93,12 +93,7 @@ final class FiscalOnboardingReadinessService
             ])
             ->whereIn('fp.status', ['active', 'ready'])
             ->countAllResults();
-        $availablePaymentMethods = (int) $this->db->table('payment_methods')
-            ->where(['deleted' => 0, 'available_on_invoice' => 1])
-            ->countAllResults();
-        $mappedPaymentMethods = (int) $this->db->table('fiscal_payment_method_mappings')
-            ->where('is_active', 1)
-            ->countAllResults();
+        $paymentMethods = (new FiscalPaymentMethodReadinessService($this->db))->inspect();
 
         $blockers = [];
         if (empty($this->fiscal->enabled)) {
@@ -127,9 +122,6 @@ final class FiscalOnboardingReadinessService
         }
         if ($configuredClients < $clients) {
             $blockers[] = 'Hay clientes sin perfil fiscal.';
-        }
-        if ($availablePaymentMethods < 1 || $mappedPaymentMethods < $availablePaymentMethods) {
-            $blockers[] = 'Métodos de pago sin mapping SAT completo.';
         }
         if (empty($this->fiscal->stampingEnabled)) {
             $blockers[] = 'Timbrado deshabilitado por configuración del servidor.';
@@ -165,10 +157,7 @@ final class FiscalOnboardingReadinessService
                 'configured' => $configuredClients,
                 'incomplete' => max(0, $clients - $configuredClients),
             ],
-            'payment_methods' => [
-                'available' => $availablePaymentMethods,
-                'mapped' => $mappedPaymentMethods,
-            ],
+            'payment_methods' => $paymentMethods,
             'stamping' => ['status' => $blockers === [] ? 'READY' : 'BLOCKED'],
         ];
 

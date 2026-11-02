@@ -1,0 +1,7 @@
+{
+    "schema_version": 1,
+    "version": "1.1.6",
+    "release_id": "ikontrol-1.1.6-fiscal-unification",
+    "release_tag": "v1.1.6",
+    "source_refs": {"1.1.5": "3c4a65d00d833743378ce526da7e5891da7509f9"}
+}

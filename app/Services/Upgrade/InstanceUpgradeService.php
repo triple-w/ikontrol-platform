@@ -9,6 +9,7 @@ use App\Services\Fiscal\SatCatalogInfrastructureService;
 use App\Services\Instance\InstanceFeaturesService;
 use App\Services\Instance\InstanceIdentityService;
 use App\Services\Instance\InstanceVersionService;
+use App\Services\Upgrade\Legacy\PhysicalSchemaInspector;
 use CodeIgniter\Database\BaseConnection;
 use RuntimeException;
 use Throwable;
@@ -46,6 +47,11 @@ final class InstanceUpgradeService
             'to' => '1.1.5',
             'release_id' => 'ikontrol-1.1.5-canonical-stamp-wallet-resolution',
             'steps' => ['record_version'],
+        ],
+        '1.1.5' => [
+            'to' => '1.1.6',
+            'release_id' => 'ikontrol-1.1.6-fiscal-unification',
+            'steps' => ['fiscal_116_schema', 'fiscal_116_verify', 'record_version'],
         ],
     ];
 
@@ -121,6 +127,8 @@ final class InstanceUpgradeService
             'financial_account_movements_schema' => (new FinancialAccountMovementsSchemaUpgrade($this->db))->apply(),
             'payment_allocations_schema' => (new PaymentAllocationsSchemaUpgrade($this->db))->apply(),
             'expenses_schema' => (new ExpensesSchemaUpgrade($this->db))->apply(),
+            'fiscal_116_schema' => $this->applyFiscal116Schema(),
+            'fiscal_116_verify' => $this->verifyFiscal116Schema(),
             'record_version' => $this->recordVersion($package['to'], $package['release_id']),
             default => throw new RuntimeException('Unknown directed upgrade step: ' . $step),
         };
@@ -149,6 +157,92 @@ final class InstanceUpgradeService
         $existing = $table->where(['upgrade_run_id' => $runId, 'step' => $step])->get(1)->getRowArray();
         $data = ['status' => $status, 'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'started_at' => gmdate('Y-m-d H:i:s'), 'completed_at' => $status === 'completed' ? gmdate('Y-m-d H:i:s') : null];
         $existing ? $table->where('id', $existing['id'])->update($data) : $table->insert($data + ['upgrade_run_id' => $runId, 'step' => $step]);
+    }
+
+    private function applyFiscal116Schema(): array
+    {
+        $schema=new PhysicalSchemaInspector($this->db,(string)$this->db->DBPrefix);
+        foreach (['fiscal_documents','fiscal_document_stamps'] as $required) {
+            if (! $schema->tableExists($required)) throw new RuntimeException('FISCAL_116_PREREQUISITE_MISSING:' . $required);
+        }
+        $this->assertFiscal116Prerequisites($schema);
+        $before=[];
+        foreach (['fiscal_environment_change_requests','fiscal_sat_status_queries','fiscal_sat_status_artifacts'] as $table) {
+            $before[$table]=$schema->tableExists($table)?(int)$this->db->table($table)->countAllResults():0;
+        }
+        $this->db->query('CREATE TABLE IF NOT EXISTS '.$this->q('fiscal_environment_change_requests').' (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, requested_environment VARCHAR(20) NOT NULL, current_environment VARCHAR(20) NOT NULL,
+            status VARCHAR(30) NOT NULL DEFAULT \'preview_only\', reason VARCHAR(500) NOT NULL, before_context_id VARCHAR(40) NOT NULL,
+            after_context_id VARCHAR(40) NOT NULL, preflight_json TEXT NOT NULL, requested_by BIGINT UNSIGNED NOT NULL, requested_at DATETIME NOT NULL,
+            verified_at DATETIME NULL, KEY idx_fiscal_env_request_environment (requested_environment,requested_at),
+            KEY idx_fiscal_env_request_user (requested_by,requested_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        $this->db->query('CREATE TABLE IF NOT EXISTS '.$this->q('fiscal_sat_status_queries').' (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, fiscal_document_id BIGINT UNSIGNED NOT NULL, fiscal_document_stamp_id BIGINT UNSIGNED NOT NULL,
+            cancellation_request_id BIGINT UNSIGNED NULL, uuid CHAR(36) NOT NULL, provider VARCHAR(40) NOT NULL, environment VARCHAR(20) NOT NULL,
+            idempotency_key VARCHAR(80) NOT NULL, lock_document_id BIGINT UNSIGNED NULL, status VARCHAR(40) NOT NULL DEFAULT \'prepared\',
+            normalized_status VARCHAR(40) NOT NULL DEFAULT \'unknown\', authoritative_status VARCHAR(40) NOT NULL DEFAULT \'unknown\',
+            previous_authoritative_status VARCHAR(40) NOT NULL DEFAULT \'unknown\', provider_code VARCHAR(100) NULL, provider_message TEXT NULL,
+            http_status INT NULL, request_sent TINYINT(1) NOT NULL DEFAULT 0, timed_out TINYINT(1) NOT NULL DEFAULT 0,
+            requires_reconciliation TINYINT(1) NOT NULL DEFAULT 0, commercial_policy VARCHAR(60) NOT NULL, commercial_credit_delta INT NOT NULL DEFAULT 0,
+            may_have_provider_cost TINYINT(1) NOT NULL DEFAULT 1, queried_by BIGINT UNSIGNED NOT NULL, started_at DATETIME NOT NULL,
+            completed_at DATETIME NULL, cooldown_until DATETIME NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
+            UNIQUE KEY uq_fiscal_sat_status_idempotency (idempotency_key), UNIQUE KEY uq_fiscal_sat_status_document_lock (lock_document_id),
+            KEY idx_fiscal_sat_status_document (fiscal_document_id,created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        $this->db->query('CREATE TABLE IF NOT EXISTS '.$this->q('fiscal_sat_status_artifacts').' (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, fiscal_sat_status_query_id BIGINT UNSIGNED NOT NULL,
+            artifact_type VARCHAR(30) NOT NULL DEFAULT \'provider_response\', content_encoding VARCHAR(20) NOT NULL DEFAULT \'base64\',
+            content_base64 LONGTEXT NOT NULL, decoded_mime_type VARCHAR(80) NOT NULL DEFAULT \'application/json\',
+            decoded_size_bytes BIGINT UNSIGNED NOT NULL, decoded_sha256 CHAR(64) NOT NULL, created_by BIGINT UNSIGNED NOT NULL, created_at DATETIME NOT NULL,
+            UNIQUE KEY uq_fiscal_sat_status_artifact (fiscal_sat_status_query_id,artifact_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        foreach(['fiscal_drafts','fiscal_documents']as$table){
+            if(!$schema->columnExists($table,'global_periodicity'))$this->db->query('ALTER TABLE '.$this->q($table).' ADD global_periodicity CHAR(2) NULL');
+            if(!$schema->columnExists($table,'global_months'))$this->db->query('ALTER TABLE '.$this->q($table).' ADD global_months CHAR(2) NULL');
+            if(!$schema->columnExists($table,'global_year'))$this->db->query('ALTER TABLE '.$this->q($table).' ADD global_year SMALLINT UNSIGNED NULL');
+        }
+        $verified=$this->verifyFiscal116Schema();
+        foreach ($before as $table=>$count) if ((int)$this->db->table($table)->countAllResults()!==$count) throw new RuntimeException('FISCAL_116_HISTORICAL_ROWS_CHANGED:'.$table);
+        return ['created_or_present'=>array_keys($before),'historical_row_counts'=>$before,'verification'=>$verified];
+    }
+
+    private function verifyFiscal116Schema(): array
+    {
+        $schemaInspector=new PhysicalSchemaInspector($this->db,(string)$this->db->DBPrefix);
+        $this->assertFiscal116Prerequisites($schemaInspector);
+        $contract=Fiscal116SchemaContract::NEW_TABLES;
+        $shape=[];$errors=[];
+        foreach ($contract as $table=>$required) {
+            if (! $schemaInspector->tableExists($table)) {$errors[]='missing_table:'.$table;continue;}
+            $actual=array_map(static fn(array$row):string=>(string)$row['column_name'],$this->db->query('SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? ORDER BY ordinal_position',[$this->db->prefixTable($table)])->getResultArray());
+            foreach($required['columns'] as $column)if(!in_array(strtolower($column),array_map('strtolower',$actual),true))$errors[]='missing_column:'.$table.'.'.$column;
+            $indexShape=[];
+            foreach($required['indexes'] as $name=>$columns){$observed=$this->indexDefinition($table,$name);$indexShape[$name]=$observed;$expectedUnique=$name==='PRIMARY'||str_starts_with($name,'uq_');if($observed['columns']!==$columns||$observed['unique']!==$expectedUnique)$errors[]='invalid_index:'.$table.'.'.$name;}
+            $shape[$table]=['physical'=>$this->db->prefixTable($table),'columns'=>$actual,'indexes'=>$indexShape,'rows'=>(int)$this->db->table($table)->countAllResults()];
+        }
+        foreach(['fiscal_drafts','fiscal_documents']as$table)foreach(['global_periodicity','global_months','global_year']as$column)if(!$schemaInspector->columnExists($table,$column))$errors[]='missing_column:'.$table.'.'.$column;
+        if($errors!==[])throw new RuntimeException('FISCAL_116_SCHEMA_INCOMPLETE:'.implode(',',$errors));
+        return ['ready'=>true,'fingerprint'=>hash('sha256',json_encode($shape,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)),'tables'=>$shape];
+    }
+
+    private function indexDefinition(string $table,string $index): array
+    {
+        $rows=$this->db->query('SELECT column_name,non_unique FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=? AND index_name=? ORDER BY seq_in_index',[$this->db->prefixTable($table),$index])->getResultArray();
+        return ['columns'=>array_map(static fn(array$row):string=>(string)$row['column_name'],$rows),'unique'=>$rows!==[]&&(int)$rows[0]['non_unique']===0];
+    }
+
+    private function assertFiscal116Prerequisites(PhysicalSchemaInspector $schema): void
+    {
+        $required=Fiscal116SchemaContract::PREREQUISITE_COLUMNS;
+        $errors=[];
+        foreach($required as$table=>$columns){
+            if(!$schema->tableExists($table)){$errors[]='missing_table:'.$table;continue;}
+            $actual=array_map(static fn(array$row):string=>strtolower((string)$row['column_name']),$this->db->query('SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=?',[$this->db->prefixTable($table)])->getResultArray());
+            foreach($columns as$column)if(!in_array(strtolower($column),$actual,true))$errors[]='missing_column:'.$table.'.'.$column;
+        }
+        foreach(Fiscal116SchemaContract::PREREQUISITE_INDEXES as$table=>$indexes)foreach($indexes as$name=>$expected){$observed=$this->indexDefinition($table,$name);if($observed['columns']!==$expected['columns']||$observed['unique']!==$expected['unique'])$errors[]='invalid_index:'.$table.'.'.$name;}
+        if($errors!==[])throw new RuntimeException('FISCAL_116_PREREQUISITE_INCOMPATIBLE:'.implode(',',$errors));
     }
 
     private function q(string $table): string

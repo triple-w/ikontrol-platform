@@ -40,3 +40,13 @@ No se encontró en las fuentes disponibles una operación oficial confirmada par
 - la acción **Recuperar PDF** permanece bloqueada hasta incorporar documentación contractual verificable.
 
 La cancelación real del PAC tampoco se implementa en C1; sólo existe el contrato separado y su adaptador fake local.
+
+## Separación entre timbrado y PDF — iKontrol 1.1.6
+
+WSTools33 genera una representación PDF y no es una dependencia del endpoint de timbrado. El preflight de emisión valida el proveedor PAC, CSD, serie, snapshot y reglas fiscales; no exige SOAP, credenciales WSTools33 ni plantilla de PDF. Si una instancia elige WSTools33, su estado se reporta aparte como capacidad PDF.
+
+En el laboratorio RC1, el PAC fake sólo se acepta bajo el guard local ya existente. La confirmación debe incluir código `200`, HTTP `200`, `metadata.adapter=fake` y `request_sent=true`; después el XML se valida y se persiste antes de consumir el timbre local. Un mensaje sin esa confirmación no se marca como timbrado.
+
+RC1 ignora cualquier PDF incluido en la respuesta fake para no reutilizar la fixture estática. TCPDF genera un PDF ligado a los metadatos de ese XML, con la leyenda **SIMULACION / SIN VALIDEZ FISCAL**. El XML incluye un comentario explícito de simulación. Ninguno constituye respuesta PAC/SAT ni comprobante legal.
+
+Si la generación local falla después de confirmar el timbrado, se conserva XML, UUID, estado de timbrado y consumo de timbre; el documento queda con PDF pendiente/error y se puede regenerar desde el documento existente. La regeneración sólo lee el XML ya timbrado y nunca llama al adaptador PAC ni vuelve a consumir timbres. La generación PDF productiva existente mediante WSTools33 no cambia.

@@ -5,7 +5,7 @@ $p=$f=0;$ok=function(bool$v,string$m)use(&$p,&$f){echo($v?'[PASS] ':'[FAIL] ').$
 $r=$mapper->map('cancelarPEM',$cancel('202'));$ok($r['cancellation_status']==='cancelled'&&$r['fiscal_status']==='cancelled','Immediate cancellation maps cancelled.');
 $r=$mapper->map('cancelarPEM',$cancel('201'));$ok($r['cancellation_status']==='pending'&&!$r['requires_reconciliation'],'Status 201 maps pending.');
 $r=$mapper->map('cancelarPEM',$cancel('203'));$ok($r['cancellation_status']==='rejected'&&$r['retry_allowed'],'Status 203 maps rejected.');
-$r=$mapper->map('consultarEstadoSAT',['CodigoEstatus'=>'N - 998: intermitencia','Estado'=>'Favor de consultarlo más tarde.']);$ok($r['cancellation_status']==='verifying'&&$r['requires_reconciliation'],'N-998 maps verifying.');
+$r=$mapper->map('consultarEstadoSAT',['CodigoEstatus'=>'N - 998: intermitencia','Estado'=>'Favor de consultarlo más tarde.']);$ok($r['cancellation_status']==='unknown'&&$r['requires_reconciliation'],'N-998 remains unknown and requires reconciliation.');
 $r=$mapper->map('consultarEstadoSAT',['Estado'=>'Vigente','EsCancelable'=>'Cancelable con aceptación','EstatusCancelacion'=>'En proceso']);$ok($r['cancellation_status']==='pending','Pending never maps verifying.');
 $r=$mapper->map('consultarEstadoSAT',['Estado'=>'Cancelado','EstatusCancelacion'=>'Cancelado']);$ok($r['fiscal_status']==='cancelled','Cancelled produces cancelled fiscal status.');
 $r=$mapper->map('consultarEstadoSAT',['Estado'=>'Vigente','EstatusCancelacion'=>'Rechazado']);$ok($r['cancellation_status']==='rejected','SAT rejection maps rejected.');
@@ -16,9 +16,9 @@ $ok(str_contains($wallet,'cancellation_status_query')&&str_contains($service,'co
 $ok(!str_contains($controller,'consumeCancellation'),'Opening modal and viewing state consume zero.');
 $ok(!str_contains(file_get_contents(APPPATH.'Controllers/Fiscal/Invoices.php'),'consumeCancellationRequest'),'Acknowledgement controller consumes zero.');
 $ok(strpos($service,'csdPayload')<strpos($service,"->cancel(\$payload)"),'Local CSD validation happens before provider call and charge.');
-$ok(str_contains($service,"available']<1")&&str_contains($service,'No cuenta con timbres suficientes'),'Insufficient balance blocks locally.');
+$ok(str_contains($service,"usable']<1")&&str_contains($service,'No cuenta con timbres suficientes'),'Canonical usable balance blocks locally.');
 $ok(str_contains($wallet,'cancellation-status-query:{$id}:{$queryKey}')&&str_contains($service,'existingMovement'),'Query double click is idempotent.');
-$ok(str_contains($view,'Cada consulta de estado consume 1 timbre')&&str_contains($view,'Consultar y consumir 1 timbre'),'Warning modal states commercial cost.');
+$ok(str_contains($view,'política comercial vigente de 1 timbre')&&str_contains($view,'pendiente de confirmación contractual')&&str_contains($view,'Consultar con política vigente (1 timbre)'),'Warning distinguishes current commercial policy from unconfirmed provider cost.');
 $ok(str_contains($view,'3 días hábiles')&&!str_contains($view,'72 horas'),'UX uses three business days, never 72 hours.');
 $ok(!str_contains($service,'consultarCreditosDisponibles')&&!str_contains($wallet,'consultarCreditosDisponibles'),'Provider credits are untouched.');
 $ok(str_contains(file_get_contents(APPPATH.'Services/Fiscal/Cancellation/TimbradorXpressCancellationAdapter.php'),'FiscalCancellationStatusMapper'),'Real response fixtures use canonical mapper.');

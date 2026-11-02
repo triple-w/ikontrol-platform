@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace App\Services\Fiscal;
 
 use App\Services\Fiscal\Signing\CsdCertificateSecretService;
-use App\Services\Fiscal\Pdf\FiscalPdfTemplateResolver;
 use RuntimeException;
 use Throwable;
 
@@ -37,14 +36,11 @@ final class FiscalDraftStampingPreflightService
         $draft = $snapshot['draft'];
         $fiscal=config('Fiscal');
         if($fiscal->runtimeMode!=='automated_test'){
-            $pac=config('TimbradorXpress');$pdf=config('FiscalPdfProvider');
+            $pac=config('TimbradorXpress');
             $context=FiscalRuntimeContext::from($fiscal,$pac);$environment=$context['fiscal_environment'];
             if(!$context['operational'])$errors[]=$context['errors'][0]??'El ambiente fiscal no está configurado correctamente.';
             if(($draft['environment']??'')!==$environment)$errors[]='El borrador no pertenece al ambiente fiscal activo.';
             if(($snapshot['series_snapshot']['environment']??'')!==$environment||(int)($snapshot['series_snapshot']['issuer_profile_id']??0)!==(int)($draft['issuer_id']??0)||empty($snapshot['series_snapshot']['is_active']))$errors[]='Selecciona una serie activa del ambiente fiscal y del emisor.';
-            if(!class_exists(\SoapClient::class))$errors[]='La extensión SOAP no está disponible.';
-            if($pdf->provider!=='timbradorxpress-tools'||!$pdf->enabled||$pdf->username===''||$pdf->password===''||$pdf->wsdl==='')$errors[]='El servicio PDF WSTools33 no está configurado.';
-            try{$template=(new FiscalPdfTemplateResolver($this->db))->resolve((int)$draft['issuer_id'],'timbradorxpress-tools','I');if($template->templateCode!=='1')$errors[]='La plantilla PDF de ingreso debe ser 1.';}catch(Throwable){$errors[]='La plantilla PDF de ingreso debe ser 1.';}
             try{
                 $now=get_current_utc_time();$certificate=$this->db->table('fiscal_issuer_certificates')->where(['issuer_profile_id'=>$draft['issuer_id'],'status'=>'valid','deleted'=>0])->where('valid_from <=',$now)->where('valid_to >=',$now)->get(1)->getRow();
                 if(!$certificate)throw new RuntimeException('missing');
@@ -63,6 +59,22 @@ final class FiscalDraftStampingPreflightService
             || empty($snapshot['issuer_snapshot']['rfc'])
             || empty($snapshot['receiver_snapshot']['rfc'])) {
             $errors[] = 'El snapshot fiscal del emisor o receptor está incompleto.';
+        }
+        try {
+            $operationDates=[];
+            foreach($snapshot['allocations']as$allocation){$sale=$this->db->table('invoices')->select('bill_date')->where('id',(int)$allocation['sale_id'])->get(1)->getRow();$operationDates[]=(string)($sale->bill_date??'');}
+            (new FiscalGlobalInformationService())->validate($draft,$snapshot['receiver_snapshot']+['tax_regime_code'=>(string)($draft['receiver_tax_regime_code']??'')],(string)($draft['cfdi_use_code']??''),'I',(string)($draft['issue_date']??''),$operationDates,$snapshot['issuer_snapshot']);
+        } catch (Throwable $exception) {
+            $errors[] = $exception->getMessage();
+        }
+        try {
+            (new CfdiPaymentRuleService($this->db))->validateForAllocations(
+                $snapshot['allocations'],
+                (string)($draft['payment_method_code'] ?? ''),
+                (string)($draft['payment_form_code'] ?? '')
+            );
+        } catch (Throwable $exception) {
+            $errors[] = $exception->getMessage();
         }
         if (!$snapshot['items']) $errors[] = 'El borrador no contiene conceptos.';
         foreach ($snapshot['items'] as $item) {

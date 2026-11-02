@@ -35,12 +35,14 @@ final class FiscalDraftStampingService
     public function preflight(int $draftId): array
     {
         $draft=$this->db->table('fiscal_drafts')->select('fiscal_document_id')->where('id',$draftId)->get(1)->getRow();
-        return $this->preflight->inspect($draftId, !empty($draft->fiscal_document_id));
+        return $this->preflight->inspectForSaleFlow($draftId, !empty($draft->fiscal_document_id));
     }
 
     public function stamp(int $draftId, int $userId, bool $authorized): array
     {
-        return $this->stampInternal($draftId, $userId, $authorized, false);
+        // A fiscal draft reserves its related open sales. They become closed only
+        // after a UUID was persisted by completeStampedLocally().
+        return $this->stampInternal($draftId, $userId, $authorized, true);
     }
 
     public function stampSaleFlow(int $draftId, int $userId, bool $authorized): array
@@ -56,6 +58,18 @@ final class FiscalDraftStampingService
         if ($acquired !== 1) throw new RuntimeException('El borrador ya está siendo procesado.');
         $documentId = null;
         try {
+            $prepared=$this->db->table('fiscal_drafts')->select('fiscal_document_id')->where('id',$draftId)->get(1)->getRow();
+            $documentId=(int)($prepared->fiscal_document_id??0);
+            if ($documentId>0) {
+                $existingStamp=$this->db->table('fiscal_document_stamps')->where('fiscal_document_id',$documentId)->get(1)->getRow();
+                if ($existingStamp && trim((string)$existingStamp->uuid)!=='') {
+                    $linkedDocument=$this->db->table('fiscal_documents')->where([
+                        'id'=>$documentId,'source_draft_id'=>$draftId,'deleted'=>0,
+                    ])->get(1)->getRow();
+                    if (!$linkedDocument) throw new RuntimeException('FISCAL_STAMP_DRAFT_DOCUMENT_LINK_INVALID');
+                    return $this->completeStampedLocally($draftId,$documentId,$userId,$existingStamp);
+                }
+            }
             (new FiscalPreparedDocumentLifecycleService($this->db))->invalidateIfSnapshotChanged($draftId, $userId);
             $prepared=$this->db->table('fiscal_drafts')->select('fiscal_document_id')->where('id',$draftId)->get(1)->getRow();
             $documentId=(int)($prepared->fiscal_document_id??0);
@@ -83,7 +97,7 @@ final class FiscalDraftStampingService
                 $certificate=$this->activeCertificate($documentId);
                 $this->signer->sign($documentId,(int)$preXmlArtifact->id,(int)$certificate->id,$userId,true);
             }
-            $result = $this->stamping->stamp($documentId, $userId, true);
+            $result = $this->stamping->stampDraftDocument($documentId, $userId, true);
             if ($result->xmlAvailable && $result->uuid) {
                 $stamp=$this->db->table('fiscal_document_stamps')->where('fiscal_document_id',$documentId)->get(1)->getRow();
                 if(!$stamp||trim((string)$stamp->uuid)==='')throw new RuntimeException('PAC_SUCCESS_WAS_NOT_PERSISTED');
@@ -132,14 +146,20 @@ final class FiscalDraftStampingService
             catch(Throwable $closeError){$pending[]='sale_close';$this->postStampWarning($draftId,$documentId,$userId,'sale_close',$closeError);}
         }
         $pdfAvailable=(string)($stamp->pdf_status??'')==='valid'&&(int)($stamp->pac_pdf_artifact_id??0)>0;
-        if(!$pdfAvailable&&config('FiscalPdfProvider')->enabled){try{$pdf=($this->pdfGeneration??new FiscalPacPdfGenerationService($this->db))->generate($documentId,$userId);$pdfAvailable=$pdf->pdfAvailable;}catch(Throwable $pdfError){$this->postStampWarning($draftId,$documentId,$userId,'pdf_generation',$pdfError);}}
+        $pdfState=$pdfAvailable?'stamped':'pending';
+        $pdfConfig=config('FiscalPdfProvider');
+        $localFakePdf=$pdfConfig->provider==='fake'&&config('Fiscal')->allowsLabFakePac();
+        if(!$pdfAvailable&&($pdfConfig->enabled||$localFakePdf)){try{$pdf=($this->pdfGeneration??new FiscalPacPdfGenerationService($this->db))->generate($documentId,$userId);$pdfAvailable=$pdf->pdfAvailable;$pdfState=$pdf->status;}catch(Throwable $pdfError){$pdfState='stamped_pdf_error';$this->postStampWarning($draftId,$documentId,$userId,'pdf_generation',$pdfError);}}
         $localPending=(bool)$pending;
-        $status=$localPending?'stamped_local_reconciliation_pending':($pdfAvailable?'stamped':'stamped_pdf_pending');
+        $status=$localPending?'stamped_local_reconciliation_pending':($pdfAvailable?'stamped':($pdfState==='stamped_pdf_error'?'stamped_pdf_error':'stamped_pdf_pending'));
         $this->db->table('fiscal_drafts')->where('id',$draftId)->update(['fiscal_document_id'=>$documentId,'status'=>$localPending?'error':'stamped','updated_by'=>$userId,'updated_at'=>get_current_utc_time()]);
         $this->db->table('fiscal_documents')->where('id',$documentId)->update(['status'=>$status,'stamp_updated_at'=>get_current_utc_time()]);
-        $message=$localPending?'Factura timbrada correctamente. Falta completar una actualizacion administrativa local.':($pdfAvailable?'Factura timbrada correctamente.':'Factura timbrada correctamente. El PDF esta pendiente de generacion.');
+        $simulated=config('Fiscal')->allowsLabFakePac();
+        $message=$simulated
+            ?($pdfAvailable?'Timbrado simulado correctamente. XML y PDF de laboratorio sin validez fiscal.':'Timbrado simulado; XML persistido y PDF pendiente de regeneración. Sin validez fiscal.')
+            :($localPending?'Factura timbrada correctamente. Falta completar una actualizacion administrativa local.':($pdfAvailable?'Factura timbrada correctamente.':'Factura timbrada correctamente. El PDF esta pendiente de generacion.'));
         $this->audit($draftId,$userId,$localPending?'draft_stamped_local_reconciliation_pending':'draft_stamped',['document_id'=>$documentId,'attempt_id'=>(int)($stamp->stamp_attempt_id??0),'uuid'=>(string)$stamp->uuid,'pending'=>$pending,'pdf_available'=>$pdfAvailable]);
-        return['document_id'=>$documentId,'result'=>array_replace($providerResult,['success'=>true,'status'=>$status,'documentId'=>$documentId,'attemptId'=>(int)($stamp->stamp_attempt_id??0),'providerMessage'=>$message,'uuid'=>(string)$stamp->uuid,'retryable'=>false,'requiresReconciliation'=>false,'xmlAvailable'=>true,'pdfAvailable'=>$pdfAvailable,'requiresPdfRecovery'=>!$pdfAvailable])];
+        return['document_id'=>$documentId,'result'=>array_replace($providerResult,['success'=>true,'status'=>$status,'documentId'=>$documentId,'attemptId'=>(int)($stamp->stamp_attempt_id??0),'providerMessage'=>$message,'uuid'=>(string)$stamp->uuid,'retryable'=>false,'requiresReconciliation'=>false,'xmlAvailable'=>true,'pdfAvailable'=>$pdfAvailable,'requiresPdfRecovery'=>!$pdfAvailable,'simulated'=>$simulated])];
     }
 
     private function postStampWarning(int $draftId,int $documentId,int $userId,string $stage,Throwable $error):void

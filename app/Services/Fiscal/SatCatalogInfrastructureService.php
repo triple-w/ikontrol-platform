@@ -24,6 +24,7 @@ final class SatCatalogInfrastructureService
         foreach (['sat_product_service_keys', 'sat_unit_keys'] as $table) {
             if ($this->tableExists($table) && ! $this->columnExists($table, 'normalized_description')) $columns[] = $table . '.normalized_description';
         }
+        if ($this->tableExists('sat_unit_keys') && ! $this->unitDescriptionCapacityReady()) $columns[] = 'sat_unit_keys.description_capacity';
         return ['ready' => $missing === [] && $columns === [], 'missing_tables' => $missing, 'missing_columns' => $columns];
     }
 
@@ -63,6 +64,9 @@ final class SatCatalogInfrastructureService
             $this->addIndex($table, 'idx_sat_active_code', 'is_active,code');
             $this->addIndex($table, 'idx_sat_active_normalized_description', 'is_active,normalized_description');
         }
+        if (! $this->unitDescriptionCapacityReady() && $this->db->DBDriver !== 'SQLite3') {
+            $this->db->query('ALTER TABLE ' . $this->q('sat_unit_keys') . ' MODIFY COLUMN description TEXT NULL');
+        }
         return $this->inspect();
     }
 
@@ -83,6 +87,14 @@ final class SatCatalogInfrastructureService
         if ($this->db->DBDriver === 'SQLite3') return;
         $exists = $this->db->query('SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=? AND index_name=? LIMIT 1', [$this->db->prefixTable($table), $name])->getRow();
         if (! $exists) $this->db->query('ALTER TABLE ' . $this->q($table) . " ADD KEY {$name} ({$columns})");
+    }
+
+    private function unitDescriptionCapacityReady(): bool
+    {
+        if ($this->db->DBDriver === 'SQLite3') return true;
+        $row=$this->db->query('SELECT DATA_TYPE,CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1',[$this->db->prefixTable('sat_unit_keys'),'description'])->getRow();
+        if(!$row)return false;
+        return in_array(strtolower((string)$row->DATA_TYPE),['text','mediumtext','longtext'],true)||(int)$row->CHARACTER_MAXIMUM_LENGTH>=600;
     }
 
     private function q(string $table): string

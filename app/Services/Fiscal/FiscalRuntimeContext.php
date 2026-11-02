@@ -48,7 +48,8 @@ final class FiscalRuntimeContext
             if (!$productionGuard) $errors[] = 'TimbradorXpress production no fue habilitado explícitamente.';
             if (!$configured) $errors[] = 'La credencial PAC del ambiente fiscal no está configurada.';
         } elseif ($provider === 'fake') {
-            if ($runtime !== 'automated_test') $coherenceErrors[] = 'El PAC fake sólo está permitido en pruebas automatizadas.';
+            $labAllowed = method_exists($fiscal, 'allowsLabFakePac') && $fiscal->allowsLabFakePac();
+            if ($runtime !== 'automated_test' && !$labAllowed) $coherenceErrors[] = 'El PAC fake sólo está permitido en pruebas automatizadas o laboratorio RC1 local.';
         } else {
             $coherenceErrors[] = 'El adaptador PAC configurado no está permitido.';
         }

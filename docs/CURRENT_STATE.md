@@ -1,5 +1,7 @@
 # Estado actual
 
+> Trabajo local 1.1.6 (2026-10-31, sin publicar): el árbol de trabajo incorpora los diez CSV SAT derivados del libro oficial, manifest con checksums y un inicializador fiscal idempotente. El bloqueo anterior por ausencia de artifacts SAT quedó resuelto localmente, pero 1.1.6 continúa sin autorizar para producción hasta completar el UAT fiscal sintético y la validación dirigida por instancia.
+
 > Candidato 1.1.0 (2026-10-01): el bridge Smartfree autocontenido, el actualizador dirigido, los modos fiscales y los feature flags ya estan implementados y validados localmente. La liberacion permanece bloqueada hasta incorporar y verificar los diez CSV SAT oficiales con su manifest y checksums; v1.0.0 sigue siendo la ultima version liberada.
 
 > P15 (2026-10-01): iKontrol v1.0.0 está liberado en el tag `v1.0.0`. La instalación canónica, onboarding y actualización dirigida están documentados.

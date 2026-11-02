@@ -11,6 +11,8 @@ use App\Services\Fiscal\Signing\SignedXmlVerifier;
 use App\Services\Fiscal\Signing\CsdCertificateSecretService;
 use App\Services\Fiscal\CsdCertificateService;
 use App\Services\Fiscal\FiscalPreviewModeGuard;
+use App\Services\Fiscal\FiscalDraftStampingPreflightService;
+use App\Services\Fiscal\FiscalSaleAllocationService;
 use App\Services\Fiscal\Stamps\FiscalStampAccountService;
 use App\Services\Fiscal\Stamps\FiscalStampBalanceException;
 use Config\TimbradorXpress;
@@ -36,7 +38,37 @@ final class FiscalStampingService
 
     public function stamp(int $documentId, int $userId, bool $authorized): FiscalStampingResult
     {
-        (new FiscalPreviewModeGuard($this->db))->assertStampingAllowed();
+        return $this->stampInternal($documentId, $userId, $authorized, true);
+    }
+
+    public function stampDraftDocument(int $documentId, int $userId, bool $authorized): FiscalStampingResult
+    {
+        if (!$authorized) {
+            throw new RuntimeException('No tiene permiso para timbrar CFDI.');
+        }
+        $document = $this->db->table('fiscal_documents')
+            ->select('source_draft_id')
+            ->where(['id' => $documentId, 'deleted' => 0])
+            ->get(1)
+            ->getRow();
+        $draftId = (int) ($document->source_draft_id ?? 0);
+        if ($draftId < 1) {
+            throw new RuntimeException('FISCAL_STAMP_DRAFT_DOCUMENT_REQUIRED');
+        }
+
+        // stampDraftDocument() is reached only through the canonical sale flow:
+        // its reserved sale may remain draft/open until a UUID is persisted.
+        // Re-run the same sale-flow policy at this final gate instead of the
+        // stricter standalone-draft policy, while retaining every fiscal check.
+        (new FiscalDraftStampingPreflightService($this->db))->requireReadyForSaleFlow($draftId, true);
+        (new FiscalSaleAllocationService($this->db))->validateDraftDocumentConsistency($draftId, $documentId);
+
+        return $this->stampInternal($documentId, $userId, $authorized, false);
+    }
+
+    private function stampInternal(int $documentId, int $userId, bool $authorized, bool $requireGlobalReadiness): FiscalStampingResult
+    {
+        (new FiscalPreviewModeGuard($this->db))->assertStampingAllowed($requireGlobalReadiness);
         if (!$authorized) {
             throw new RuntimeException('No tiene permiso para timbrar CFDI.');
         }
@@ -198,6 +230,13 @@ final class FiscalStampingService
         if (!$mapper->isSuccess($response->code)) {
             return $this->reject($documentId, $userId, $attempt, $response, $duration, $mapper);
         }
+        if ($provider === 'fake'
+            && ($response->code !== '200'
+                || $response->httpStatus !== 200
+                || ($response->metadata['adapter'] ?? null) !== 'fake'
+                || ($response->metadata['request_sent'] ?? null) !== true)) {
+            return $this->rejectInvalidFakeConfirmation($documentId, $userId, $attempt, $response, $duration);
+        }
 
         try {$data=(new TimbradorXpressStampDataParser())->parse($response);}
         catch(Throwable $e){$this->finishInvalidResponse((int)$attempt->id,$documentId,'stamp_data_invalid',$response,$duration,get_class($e),$e->getMessage());throw new RuntimeException('Los datos de timbrado requieren conciliación.');}
@@ -264,7 +303,10 @@ final class FiscalStampingService
                 'qr_data' => $this->safeQrData($data['CodigoQR']),
                 'auxiliary_warnings' => json_encode($warnings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'pdf_status' => 'pending',
-                'pdf_template' => $providerConfig->pdfTemplate,
+                // A PAC stamping template is not a WSTools33 PDF template.
+                // The PDF workflow freezes its own resolved template when an
+                // actual generation attempt starts.
+                'pdf_template' => null,
                 'created_at' => get_current_utc_time(),
             ]);
             $stampId=(int)$this->db->insertID();
@@ -587,10 +629,20 @@ final class FiscalStampingService
         TimbradorXpress $config,
         int $userId
     ): array {
-        if ($pdfBase64 === null || trim($pdfBase64) === '') {
+        if (config('Fiscal')->allowsLabFakePac()) {
             $this->db->table('fiscal_document_stamps')->where('fiscal_document_id', $documentId)->update([
                 'pdf_status' => 'pending',
                 'pdf_template' => $config->pdfTemplate,
+            ]);
+            $this->audit($documentId, $userId, 'fake_pac_pdf_ignored', [
+                'attempt_id' => $attemptId,
+                'reason' => 'The laboratory generates a document-specific PDF locally.',
+            ]);
+            return ['status' => 'pending'];
+        }
+        if ($pdfBase64 === null || trim($pdfBase64) === '') {
+            $this->db->table('fiscal_document_stamps')->where('fiscal_document_id', $documentId)->update([
+                'pdf_status' => 'pending',
             ]);
             return ['status' => 'pending'];
         }
@@ -637,6 +689,56 @@ final class FiscalStampingService
 
             return ['status' => 'error'];
         }
+    }
+
+    private function rejectInvalidFakeConfirmation(
+        int $documentId,
+        int $userId,
+        object $attempt,
+        object $response,
+        int $duration
+    ): FiscalStampingResult {
+        $message = 'El PAC fake no devolvió una confirmación válida bajo el contrato de laboratorio.';
+        $this->db->transStart();
+        $this->db->table('fiscal_stamp_attempts')->where('id', $attempt->id)->update([
+            'status' => 'rejected',
+            'responded_at' => get_current_utc_time(),
+            'http_status' => $response->httpStatus ?: null,
+            'provider_code' => $response->code,
+            'provider_message' => $message,
+            'error_category' => 'fake_confirmation_invalid',
+            'parsing_phase' => 'fake_confirmation_invalid',
+            'requires_reconciliation' => 0,
+            'retryable' => 0,
+            'duration_ms' => $duration,
+            'updated_at' => get_current_utc_time(),
+        ]);
+        $this->db->table('fiscal_documents')->where('id', $documentId)->update([
+            'status' => 'stamping_error',
+            'stamp_updated_at' => get_current_utc_time(),
+        ]);
+        $this->audit($documentId, $userId, 'fake_confirmation_rejected', [
+            'attempt_id' => $attempt->id,
+            'http_status' => $response->httpStatus,
+            'provider_code' => $response->code,
+        ]);
+        $this->db->transComplete();
+        $this->releaseCommercialReservation((int) $attempt->id, $userId, 'Fake PAC confirmation did not satisfy its local contract.');
+
+        return new FiscalStampingResult(
+            false,
+            'rejected',
+            $documentId,
+            (int) $attempt->id,
+            'fake_confirmation_invalid',
+            $response->code,
+            $message,
+            $response->httpStatus ?: null,
+            null,
+            false,
+            false,
+            'Revisar el adaptador fake antes de reintentar.'
+        );
     }
 
     private function reject(

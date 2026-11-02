@@ -1,0 +1,184 @@
+code,name,requires_exchange_rate
+AED,"Dirham de EAU",1
+AFN,Afghani,1
+ALL,Lek,1
+AMD,"Dram armenio",1
+ANG,"Florín antillano neerlandés",1
+AOA,Kwanza,1
+ARS,"Peso Argentino",1
+AUD,"Dólar Australiano",1
+AWG,"Aruba Florin",1
+AZN,"Azerbaijanian Manat",1
+BAM,"Convertibles marca",1
+BBD,"Dólar de Barbados",1
+BDT,Taka,1
+BGN,"Lev búlgaro",1
+BHD,"Dinar de Bahrein",1
+BIF,"Burundi Franc",1
+BMD,"Dólar de Bermudas",1
+BND,"Dólar de Brunei",1
+BOB,Boliviano,1
+BOV,Mvdol,1
+BRL,"Real brasileño",1
+BSD,"Dólar de las Bahamas",1
+BTN,Ngultrum,1
+BWP,Pula,1
+BYR,"Rublo bielorruso",1
+BZD,"Dólar de Belice",1
+CAD,"Dólar Canadiense",1
+CDF,"Franco congoleño",1
+CHE,"WIR Euro",1
+CHF,"Franco Suizo",1
+CHW,"Franc WIR",1
+CLF,"Unidad de Fomento",1
+CLP,"Peso chileno",1
+CNH,"Yuan extracontinental (China )",1
+CNY,"Yuan Renminbi",1
+COP,"Peso Colombiano",1
+COU,"Unidad de Valor real",1
+CRC,"Colón costarricense",1
+CUC,"Peso Convertible",1
+CUP,"Peso Cubano",1
+CVE,"Cabo Verde Escudo",1
+CZK,"Corona checa",1
+DJF,"Franco de Djibouti",1
+DKK,"Corona danesa",1
+DOP,"Peso Dominicano",1
+DZD,"Dinar argelino",1
+EGP,"Libra egipcia",1
+ERN,Nakfa,1
+ESD,"Dólar de Ecuador",1
+ETB,"Birr etíope",1
+EUR,Euro,1
+FJD,"Dólar de Fiji",1
+FKP,"Libra malvinense",1
+GBP,"Libra Esterlina",1
+GEL,Lari,1
+GHS,"Cedi de Ghana",1
+GIP,"Libra de Gibraltar",1
+GMD,Dalasi,1
+GNF,"Franco guineano",1
+GTQ,Quetzal,1
+GYD,"Dólar guyanés",1
+HKD,"Dólar De Hong Kong",1
+HNL,Lempira,1
+HRK,Kuna,1
+HTG,Gourde,1
+HUF,Florín,1
+IDR,Rupia,1
+ILS,"Nuevo Shekel Israelí",1
+INR,"Rupia india",1
+IQD,"Dinar iraquí",1
+IRR,"Rial iraní",1
+ISK,"Corona islandesa",1
+JMD,"Dólar Jamaiquino",1
+JOD,"Dinar jordano",1
+JPY,Yen,1
+KES,"Chelín keniano",1
+KGS,Som,1
+KHR,Riel,1
+KMF,"Franco Comoro",1
+KPW,"Corea del Norte ganó",1
+KRW,Won,1
+KWD,"Dinar kuwaití",1
+KYD,"Dólar de las Islas Caimán",1
+KZT,Tenge,1
+LAK,Kip,1
+LBP,"Libra libanesa",1
+LKR,"Rupia de Sri Lanka",1
+LRD,"Dólar liberiano",1
+LSL,Loti,1
+LYD,"Dinar libio",1
+MAD,"Dirham marroquí",1
+MDL,"Leu moldavo",1
+MGA,"Ariary malgache",1
+MKD,Denar,1
+MMK,Kyat,1
+MNT,Tugrik,1
+MOP,Pataca,1
+MRO,Ouguiya,1
+MUR,"Rupia de Mauricio",1
+MVR,Rupia,1
+MWK,Kwacha,1
+MXN,"Peso Mexicano",0
+MXV,"México Unidad de Inversión (UDI)",1
+MYR,"Ringgit malayo",1
+MZN,"Mozambique Metical",1
+NAD,"Dólar de Namibia",1
+NGN,Naira,1
+NIC,"Córdoba (Nicaragua)",1
+NIO,"Córdoba Oro",1
+NOK,"Corona noruega",1
+NPR,"Rupia nepalí",1
+NZD,"Dólar de Nueva Zelanda",1
+OMR,"Rial omaní",1
+PAB,Balboa,1
+PEN,"Nuevo Sol",1
+PGK,Kina,1
+PHP,"Peso filipino",1
+PKR,"Rupia de Pakistán",1
+PLN,Zloty,1
+PYG,Guaraní,1
+QAR,"Qatar Rial",1
+RON,"Leu rumano",1
+RSD,"Dinar serbio",1
+RUB,"Rublo ruso",1
+RWF,"Franco ruandés",1
+SAR,"Riyal saudí",1
+SBD,"Dólar de las Islas Salomón",1
+SCR,"Rupia de Seychelles",1
+SDG,"Libra sudanesa",1
+SEK,"Corona sueca",1
+SGD,"Dólar De Singapur",1
+SHP,"Libra de Santa Helena",1
+SLL,Leona,1
+SOS,"Chelín somalí",1
+SRD,"Dólar de Suriname",1
+SSP,"Libra sudanesa Sur",1
+STD,Dobra,1
+SVC,"Colon El Salvador",1
+SYP,"Libra Siria",1
+SZL,Lilangeni,1
+THB,Baht,1
+TJS,Somoni,1
+TMT,"Turkmenistán nuevo manat",1
+TND,"Dinar tunecino",1
+TOP,Pa'anga,1
+TRY,"Lira turca",1
+TTD,"Dólar de Trinidad y Tobago",1
+TWD,"Nuevo dólar de Taiwán",1
+TZS,"Shilling tanzano",1
+UAH,Hryvnia,1
+UGX,"Shilling de Uganda",1
+USD,"Dólar americano",1
+USN,"Dólar estadounidense (día siguiente)",1
+UYI,"Peso Uruguay en Unidades Indexadas (URUIURUI)",1
+UYP,"Uruguay (Peso)",1
+UYU,"Peso Uruguayo",1
+UZS,"Uzbekistán Sum",1
+VEF,Bolívar,1
+VES,"Bolívar digital  (Venezuela)",1
+VND,Dong,1
+VUV,Vatu,1
+WST,Tala,1
+XAF,"Franco CFA BEAC",1
+XAG,Plata,1
+XAU,Oro,1
+XBA,"Unidad de Mercados de Bonos Unidad Europea Composite (EURCO)",1
+XBB,"Unidad Monetaria de Bonos de Mercados Unidad Europea (UEM-6)",1
+XBC,"Mercados de Bonos Unidad Europea unidad de cuenta a 9 (UCE-9)",1
+XBD,"Mercados de Bonos Unidad Europea unidad de cuenta a 17 (UCE-17)",1
+XCD,"Dólar del Caribe Oriental",1
+XDR,"DEG (Derechos Especiales de Giro)",1
+XOF,"Franco CFA BCEAO",1
+XPD,Paladio,1
+XPF,"Franco CFP",1
+XPT,Platino,1
+XSU,Sucre,1
+XTS,"Códigos reservados específicamente para propósitos de prueba",1
+XUA,"Unidad ADB de Cuenta",1
+XXX,"Los códigos asignados para las transacciones en que intervenga ninguna moneda",0
+YER,"Rial yemení",1
+ZAR,Rand,1
+ZMW,"Kwacha zambiano",1
+ZWL,"Zimbabwe Dólar",1

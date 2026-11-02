@@ -1,0 +1,41 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__).'/bootstrap.php';
+
+use App\Services\Fiscal\Cancellation\FiscalCancellationStatusMapper;
+use App\Services\Fiscal\Cancellation\TimbradorXpressCancellationAdapter;
+use Config\Fiscal;
+use Config\TimbradorXpress;
+
+$pass=$fail=0;$ok=static function(bool$v,string$m)use(&$pass,&$fail):void{echo($v?'[PASS] ':'[FAIL] ').$m.PHP_EOL;$v?$pass++:$fail++;};
+$f=(new ReflectionClass(Fiscal::class))->newInstanceWithoutConstructor();
+$f->runtimeMode='integration';$f->enabled=true;$f->stampingEnabled=true;$f->previewMode=false;$f->environment='development';$f->pacAdapter='timbradorxpress';$f->allowRealPac=true;
+$p=(new ReflectionClass(TimbradorXpress::class))->newInstanceWithoutConstructor();
+$p->environment='sandbox';$p->baseUrl=TimbradorXpress::SANDBOX_URL;$p->soapWsdl=TimbradorXpress::SANDBOX_SOAP_WSDL;$p->apiKey='synthetic-test-key';$p->productionEnabled=false;$p->connectTimeout=2;$p->requestTimeout=5;
+$calls=[];$factory=static function(string$wsdl,array$options)use(&$calls){return new class($wsdl,$calls){private array$calls;public function __construct(private string$wsdl,array&$calls){$this->calls=&$calls;}public function __soapCall(string$operation,array$args):object{$this->calls[]=[$this->wsdl,$operation,$args];return(object)['status'=>'success','code'=>'200','message'=>'Solicitud recibida','data'=>(object)['Estado'=>'Cancelado']];}};};
+$adapter=new TimbradorXpressCancellationAdapter($p,$factory,$f);
+$result=$adapter->cancel(['uuid'=>'123E4567-E89B-42D3-A456-426614174000','issuer_rfc'=>'AAA010101AAA','receiver_rfc'=>'XAXX010101000','total'=>'116.00','reason'=>'02','key_pem'=>'synthetic-key','certificate_pem'=>'synthetic-certificate']);
+$ok(count($calls)===1&&$calls[0][0]===TimbradorXpress::SANDBOX_SOAP_WSDL&&$calls[0][1]==='cancelarPEM','cancelación usa exclusivamente el WSDL SOAP sandbox allowlisted');
+$ok($result['request_sent']===true&&$result['http_status']===200,'respuesta SOAP queda trazable como solicitud enviada');
+$sent=$calls[0][2][0];$ok(isset($sent['apikey'],$sent['keyPEM'],$sent['cerPEM'],$sent['uuid'],$sent['motivo'],$sent['folioSustitucion']),'cancelarPEM conserva el contrato SOAP documentado');
+$adapter->query(['uuid'=>'123E4567-E89B-42D3-A456-426614174000','issuer_rfc'=>'AAA010101AAA','receiver_rfc'=>'XAXX010101000','total'=>'116.00']);
+$ok(count($calls)===2&&$calls[1][1]==='consultarEstadoSAT','consulta de cancelación usa consultarEstadoSAT en el mismo transporte SOAP');
+$satSource=file_get_contents(APPPATH.'Services/Fiscal/SatStatus/FiscalSatStatusService.php');
+$ok(str_contains($satSource,'TimbradorXpressCancellationAdapter')&&str_contains($satSource,'queryProvider')&&!str_contains($satSource,"baseUrl.'consultarEstadoSAT'"),'consulta SAT general delega al transporte SOAP compartido sin fallback REST');
+$mapper=new FiscalCancellationStatusMapper();
+$ok($mapper->map('consultarEstadoSAT',['Estado'=>'Cancelado'])['service_status']==='accepted','sólo Cancelado confirma la cancelación');
+$ok($mapper->map('consultarEstadoSAT',['Estado'=>'Vigente','EstatusCancelacion'=>'Solicitud rechazada'])['cancellation_status']==='rejected','rechazo conserva CFDI vigente');
+$ok($mapper->map('consultarEstadoSAT',['Estado'=>'Vigente','EstatusCancelacion'=>'En proceso'])['cancellation_status']==='pending','pendiente no se interpreta como cancelada');
+$source=file_get_contents(APPPATH.'Services/Fiscal/Cancellation/FiscalCancellationService.php');
+$ok(str_contains($source,"default=>null")&&!str_contains($source,"'unknown'=>'cancellation_pending'"),'unknown conserva el estado autoritativo y exige conciliación');
+$sale=file_get_contents(APPPATH.'Services/Sales/SaleLifecycleService.php');$ui=file_get_contents(APPPATH.'Views/invoices/cancel_sale_form.php');$controller=file_get_contents(APPPATH.'Controllers/Invoices.php');
+$ok(str_contains($sale,'cancelWithinTransaction')&&str_contains($sale,"'sale_cancelled'")&&str_contains($ui,'Motivo administrativo'),'cancelación administrativa es atómica, auditada y requiere motivo');
+$ok(!str_contains($sale,'FiscalStampAccountService')&&!str_contains($sale,'fiscal_stamp_movements'),'cancelación administrativa no consume ni modifica timbres');
+$ok(!str_contains($controller,'get_uri("invoices/delete")')&&str_contains($controller,'cancel_sale_form'),'listado ya no ofrece borrado físico de ventas');
+$invoiceController=file_get_contents(APPPATH.'Controllers/Fiscal/Invoices.php');$cancelView=file_get_contents(APPPATH.'Views/fiscal/invoices/cancel_form.php');$failureException=file_get_contents(APPPATH.'Services/Fiscal/Cancellation/FiscalCancellationFailureException.php');
+$ok(str_contains($source,"'action'=>'cancellation_failure'")&&str_contains($source,"'stage'=>\$stage")&&str_contains($source,"'transport_started'=>\$transportStarted"),'fallos de cancelación guardan etapa y frontera de transporte fuera del rollback');
+$ok(str_contains($source,'safeDiagnosticMessage')&&str_contains($source,'[DATO PROTEGIDO]')&&str_contains($invoiceController,'safeCancellationMessage'),'diagnóstico y respuesta HTTP redactan secretos y material fiscal sensible');
+$ok(str_contains($failureException,'transportStarted')&&str_contains($invoiceController,"'requires_reconciliation'=>\$transport")&&str_contains($invoiceController,"'retry_allowed'=>!\$transport"),'controlador distingue fallo no enviado de resultado ambiguo');
+$ok(!str_contains($cancelView,'unmaskModal(')&&str_contains($cancelView,'.done(function(response)')&&str_contains($cancelView,'.fail(function(xhr)')&&str_contains($cancelView,'FiscalCancellationModal.begin'),'modal usa lifecycle AJAX local, recupera errores HTTP/red y bloquea doble clic');
+$ok(str_contains($source,"\$stage='soap_transport';\$transportStarted=true")&&str_contains($source,"\$stage='durable_request'"),'frontera SOAP ocurre sólo después de solicitud e intento durables');
+echo "TOTAL PASS={$pass} FAIL={$fail}; synthetic SOAP double only, zero network and zero database.\n";exit($fail?1:0);

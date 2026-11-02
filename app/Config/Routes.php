@@ -222,13 +222,24 @@ $p13_explicit_controllers = array(
     'Warehouse_logistics', 'Warehouse_transfers', 'Warehouse_labels',
     'Payment_complements', 'Payment_complement_cancellations', 'Credit_notes'
 );
+$legacy_post_csrf_exempt_controllers = array(
+    // These endpoints receive signed callbacks from external payment providers.
+    // They cannot supply the browser session CSRF token and validate their own
+    // provider payload in the controller.
+    'Paypal_redirect', 'Paytm_redirect', 'Stripe_redirect', 'Webhooks_listener',
+    // The public lead endpoint has its own explicit CORS route above.
+    'Collect_leads'
+);
 foreach ($controller_dropdown as $controller) {
     if (in_array($controller, $p13_explicit_controllers, true)) {
         continue;
     }
     $routes->get(strtolower($controller), "$controller::index");
     $routes->get(strtolower($controller) . '/(:any)', "$controller::$1");
-    $routes->post(strtolower($controller) . '/(:any)', "$controller::$1");
+    $legacy_post_options = in_array($controller, $legacy_post_csrf_exempt_controllers, true)
+        ? []
+        : ['filter' => 'csrf'];
+    $routes->post(strtolower($controller) . '/(:any)', "$controller::$1", $legacy_post_options);
 }
 
 // Fiscal routes are intentionally explicit and currently register no endpoints.
@@ -239,7 +250,7 @@ require APPPATH . 'Config/FiscalRoutes.php';
 
 $routes->get("Updates", "Updates::index");
 $routes->get("Updates/(:any)", "Updates::$1");
-$routes->post("Updates/(:any)", "Updates::$1");
+$routes->post("Updates/(:any)", "Updates::$1", ['filter' => 'csrf']);
 
 // C2.5A financial account foundation
 $routes->get('financial_accounts', 'Financial_accounts::index');

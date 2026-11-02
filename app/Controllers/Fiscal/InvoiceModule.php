@@ -51,6 +51,7 @@ final class InvoiceModule extends Security_Controller
                 'receipt_view' => $this->allowed('fiscal_cancellation_receipt_view'),
                 'cancel' => $this->allowed('fiscal_cancel_request'),
                 'status_query' => $this->allowed('fiscal_status_query'),
+                'sat_status_query' => $this->allowed('fiscal.sat_status.query'),
                 'advanced_view' => $this->allowed('fiscal.advanced.view'),
             ],
         ]);
@@ -76,7 +77,9 @@ final class InvoiceModule extends Security_Controller
                     esc($this->shortUuid((string)($row->uuid??''))),
                     to_currency($row->total),
                     $this->normalInvoiceBadge((string)$row->visible_status, (string)$row->cancellation_status)
-                        .($row->environment==='development'?'<br><span class="badge bg-warning text-dark">CFDI de prueba</span>':''),
+                        .($row->environment==='development'?'<br><span class="badge bg-warning text-dark">CFDI de prueba</span>':'')
+                        .(($row->stamp_provider??'')==='fake'?'<br><span class="badge bg-danger">TIMBRADO SIMULADO · SIN VALIDEZ FISCAL</span>':'')
+                        .$this->satSummary($row),
                     $this->actions($row, false),
                 ];
                 continue;
@@ -86,7 +89,9 @@ final class InvoiceModule extends Security_Controller
                 esc($row->folio), esc($this->typeLabel((string) $row->document_type)),
                 esc($this->dateEs((string)$row->issue_date)), esc($row->receiver_name ?: '-'), esc($row->receiver_rfc ?: '-'),
                 to_currency($row->total), esc($this->shortUuid((string)($row->uuid??''))),
-                $this->badge('fiscal', (string) $row->visible_status),
+                $this->badge('fiscal', (string) $row->visible_status)
+                    .(($row->stamp_provider??'')==='fake'?'<br><span class="badge bg-danger">TIMBRADO SIMULADO · SIN VALIDEZ FISCAL</span>':'')
+                    .$this->satSummary($row),
                 $this->badge('pdf', (string) ($row->pdf_status ?: 'pending'))
                     .($row->pdf_available ? '<br><small>'.esc($this->pdfArtifactLabel((string) ($row->pdf_provider ?? ''))).'</small>' : ''),
                 $this->badge('cancellation', (string) $row->cancellation_status),
@@ -101,11 +106,12 @@ final class InvoiceModule extends Security_Controller
         $items = [];
         if ($this->allowed('fiscal_invoice_view')) $items[] = anchor(get_uri('fiscal/invoices/'.$row->id), 'Ver factura');
         if ($row->xml_available && $this->allowed('fiscal_xml_download')) $items[] = anchor(get_uri('fiscal/stamping/xml/download/'.$row->id), 'Descargar XML');
+        if ($row->xml_available && !empty($row->uuid) && $this->allowed('fiscal.sat_status.query')) $items[] = modal_anchor(get_uri('fiscal/invoices/sat-status/form'),'Consultar estado SAT',['data-post-document_id'=>$row->id]);
         if (!$advanced) {
             if ($row->pdf_available && $this->allowed('fiscal_pdf_download')) $items[] = anchor(get_uri('fiscal/documents/'.$row->id.'/pdf/download'), 'Descargar PDF');
             if ($row->xml_available && !empty($row->uuid) && $this->allowed('fiscal_pdf_generate') && $this->allowed('fiscal.advanced.regenerate_pdf')) {
-                try { $template = (new FiscalPdfTemplateResolver())->resolve((int)$row->issuer_profile_id, (string)config('FiscalPdfProvider')->provider, $this->typeCode((string)$row->document_type))->templateCode; } catch (Throwable) { $template = '-'; }
-                $items[] = js_anchor('Regenerar PDF', ['class'=>'fiscal-regenerate-pdf','data-document-id'=>$row->id,'data-document-label'=>trim($row->series.' '.$row->folio),'data-uuid'=>$row->uuid,'data-template'=>$template]);
+                try { $selection=(new FiscalPdfTemplateResolver())->resolveForDocument((int)$row->id,(int)$row->issuer_profile_id,(string)config('FiscalPdfProvider')->provider,$this->typeCode((string)$row->document_type));$template=$selection->templateCode;$templateSource=$selection->source; } catch (Throwable $e) { $template='-';$templateSource=$e->getMessage()==='FISCAL_PDF_TEMPLATE_MISSING'?'No existe una plantilla activa para el proveedor, emisor y tipo documental actuales.':'No fue posible resolver la plantilla fiscal.'; }
+                $items[] = js_anchor('Regenerar PDF', ['class'=>'fiscal-regenerate-pdf','data-document-id'=>$row->id,'data-document-label'=>trim($row->series.' '.$row->folio),'data-uuid'=>$row->uuid,'data-template'=>$template,'data-template-source'=>$templateSource]);
             }
             $items[] = '<span class="text-muted" title="Disponible en un incremento posterior">Enviar</span>';
             if ($this->allowed('fiscal_cancel_request')&&$this->canCancel($row)) $items[] = modal_anchor(get_uri('fiscal/invoices/cancel/form'),'Cancelar',['data-post-document_id'=>$row->id]);
@@ -122,15 +128,17 @@ final class InvoiceModule extends Security_Controller
             $providerLabel = $this->pdfProviderLabel($provider);
             $actionLabel = $row->pdf_available ? 'Regenerar PDF' : 'Generar PDF';
             try {
-                $template = (new FiscalPdfTemplateResolver())->resolve(
+                $selection = (new FiscalPdfTemplateResolver())->resolveForDocument(
+                    (int) $row->id,
                     (int) $row->issuer_profile_id,
                     $provider,
                     $this->typeCode((string) $row->document_type)
-                )->templateCode;
-            } catch (Throwable) { $template = '-'; }
+                );$template=$selection->templateCode;$templateSource=$selection->source;
+            } catch (Throwable $e) { $template='-';$templateSource=$e->getMessage()==='FISCAL_PDF_TEMPLATE_MISSING'?'No existe una plantilla activa para el proveedor, emisor y tipo documental actuales.':'No fue posible resolver la plantilla fiscal.'; }
             $items[] = js_anchor($actionLabel, [
                 'class'=>'fiscal-generate-pdf','data-document-id'=>$row->id,'data-series'=>$row->series,
                 'data-folio'=>$row->folio,'data-uuid'=>$row->uuid,'data-template'=>$template,
+                'data-template-source'=>$templateSource,
                 'data-provider-label'=>$providerLabel,'data-action-label'=>$actionLabel,
                 'data-regenerate'=>$row->pdf_available?1:0,
             ]);
@@ -149,7 +157,7 @@ final class InvoiceModule extends Security_Controller
         $maps = [
             'fiscal'=>['draft'=>['Borrador','secondary'],'signed'=>['Listo para timbrar','info'],'processing'=>['Enviando','warning'],'stamped'=>['Timbrado','success'],'stamped_pdf_pending'=>['Timbrado','success'],'stamped_pdf_error'=>['Timbrado','success'],'stamped_pdf_processing'=>['Timbrado','success'],'stamped_pdf_unknown'=>['Timbrado','success'],'correctable_error'=>['Error','danger'],'unknown'=>['Resultado desconocido','dark'],'cancelled'=>['Cancelado','secondary']],
             'pdf'=>['pending'=>['Pendiente','secondary'],'processing'=>['Procesando','warning'],'valid'=>['Disponible','success'],'error'=>['Error','danger'],'unknown'=>['Desconocido','dark']],
-            'cancellation'=>['none'=>['No solicitada','secondary'],'requested'=>['Pendiente','warning'],'pending'=>['Pendiente','warning'],'accepted'=>['Cancelada','secondary'],'rejected'=>['Rechazada','danger'],'cancelled'=>['Cancelada','secondary'],'unknown'=>['Verificando','info']],
+            'cancellation'=>['none'=>['No solicitada','secondary'],'requested'=>['Pendiente','warning'],'pending'=>['Pendiente','warning'],'pending_acceptance'=>['Pendiente de aceptación','warning'],'accepted'=>['Cancelada','secondary'],'rejected'=>['Rechazada','danger'],'cancelled'=>['Cancelada','secondary'],'unknown'=>['Verificando','info']],
         ];
         [$label,$color] = $maps[$group][$status] ?? [ucfirst(str_replace('_',' ',$status)),'secondary'];
         return '<span class="badge bg-'.$color.'">'.esc($label).'</span>';
@@ -163,8 +171,8 @@ final class InvoiceModule extends Security_Controller
     private function typeLabel(string $type): string { return match($this->typeCode($type)){'I'=>'Ingreso','E'=>'Egreso','P'=>'Pago','T'=>'Traslado','N'=>'Nómina',default=>$type}; }
     private function dateEs(string $date): string { $time=strtotime($date); return $time?date('d/m/Y',$time):'-'; }
     private function shortUuid(string $uuid): string { return $uuid===''?'-':substr($uuid,0,8).'…'.substr($uuid,-4); }
-    private function pdfProviderLabel(string $provider): string { return $provider === 'timbradorxpress-tools' ? 'WSTools33 / PAC' : 'Servicio PDF deshabilitado (fake sólo para pruebas)'; }
-    private function pdfArtifactLabel(string $provider): string { return $provider === 'timbradorxpress-tools' ? 'PDF generado por PAC' : 'PDF de prueba local'; }
+    private function pdfProviderLabel(string $provider): string { return $provider === 'timbradorxpress-tools' ? 'WSTools33 / PAC' : 'Generador local de laboratorio'; }
+    private function pdfArtifactLabel(string $provider): string { return $provider === 'timbradorxpress-tools' ? 'PDF generado por PAC' : 'PDF simulado local · sin validez fiscal'; }
     private function normalInvoiceBadge(string $status, string $cancellation): string
     {
         [$label,$color] = $cancellation === 'pending' ? ['Cancelación pendiente','warning']
@@ -173,4 +181,10 @@ final class InvoiceModule extends Security_Controller
         return '<span class="badge bg-'.$color.'">'.esc($label).'</span>';
     }
     private function canCancel(object$row):bool{return !empty($row->uuid)&&in_array($row->visible_status,['stamped','stamped_pdf_pending','stamped_pdf_error'],true)&&in_array($row->cancellation_status,['none','rejected'],true);}
+    private function satSummary(object$row):string
+    {
+        if(empty($row->sat_last_queried_at))return'<br><small class="text-muted">SAT: sin consulta</small>';
+        $status=match((string)$row->sat_query_status){'active'=>'Vigente','cancelled'=>'Cancelado','cancellation_pending'=>'Cancelación pendiente','pending_acceptance'=>'Pendiente de aceptación','rejected'=>'Solicitud rechazada','transport_error'=>'Error de transporte',default=>'Resultado desconocido'};
+        return'<br><small>SAT: '.esc($status).' · '.esc((string)$row->sat_last_queried_at).'</small>';
+    }
 }

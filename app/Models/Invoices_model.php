@@ -111,15 +111,15 @@ class Invoices_model extends Crud_model {
         } else if ($status === "not_paid") {
             $where .= " AND $invoices_table.type = 'invoice' AND $invoices_table.status ='not_paid' AND IFNULL(payments_table.payment_received,0)<=0";
         } else if ($status === "partially_paid") {
-            $where .= " AND $invoices_table.type = 'invoice' AND IFNULL(payments_table.payment_received,0)>0 AND IFNULL(payments_table.payment_received,0)<$invoices_table.invoice_total-$tolarance";
+            $where .= " AND $invoices_table.type = 'invoice' AND ($invoices_table.status='partially_paid' OR ($invoices_table.status='not_paid' AND IFNULL(payments_table.payment_received,0)>0 AND IFNULL(payments_table.payment_received,0)<$invoices_table.invoice_total-$tolarance))";
         } else if ($status === "fully_paid") {
-            $where .= " AND $invoices_table.type = 'invoice' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)>=$invoices_table.invoice_total-$tolarance AND $invoices_table.status ='not_paid'";
+            $where .= " AND $invoices_table.type = 'invoice' AND ($invoices_table.status='paid' OR ($invoices_table.status='not_paid' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)>=$invoices_table.invoice_total-$tolarance))";
         } else if ($status === "overdue") {
-            $where .= " AND $invoices_table.type = 'invoice' AND $invoices_table.status ='not_paid' AND $invoices_table.due_date<'$now' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)<$invoices_table.invoice_total-$tolarance";
+            $where .= " AND $invoices_table.type = 'invoice' AND $invoices_table.status IN ('not_paid','partially_paid') AND $invoices_table.due_date<'$now' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)<$invoices_table.invoice_total-$tolarance";
         } else if ($status === "cancelled") {
             $where .= " AND $invoices_table.type = 'invoice' AND $invoices_table.status='cancelled' ";
         } else if ($status == "not_paid_and_partially_paid") {
-            $where .= " AND $invoices_table.type = 'invoice' AND ($invoices_table.status ='not_paid' AND IFNULL(payments_table.payment_received,0)<=0 OR (IFNULL(payments_table.payment_received,0)>0 AND IFNULL(payments_table.payment_received,0)<$invoices_table.invoice_total-$tolarance))";
+            $where .= " AND $invoices_table.type = 'invoice' AND $invoices_table.status IN ('not_paid','partially_paid') AND IFNULL(payments_table.payment_received,0)<$invoices_table.invoice_total-$tolarance";
         } else if ($status == "credited") {
             $where .= " AND $invoices_table.type = 'invoice' AND $invoices_table.status='credited' ";
         }
@@ -275,7 +275,7 @@ LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $pa
 
         $invoices = "SELECT SUM($invoices_table.invoice_total) AS total, MONTH(bill_date) AS month 
             FROM $invoices_table  
-            WHERE $invoices_table.deleted=0 AND $invoices_table.status='not_paid' $where $invoice_date_where $invoices_where
+            WHERE $invoices_table.deleted=0 AND $invoices_table.status IN ('not_paid','partially_paid','paid') $where $invoice_date_where $invoices_where
             GROUP BY MONTH(bill_date)";
 
         $info->invoices = $this->db->query($invoices)->getResult();
@@ -323,17 +323,22 @@ LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $pa
             $payment_where .= " AND $invoice_payments_table.client_id=$client_id";
         }
 
-        $payments = "SELECT SUM($invoice_payments_table.amount) AS total,$clients_table.currency AS currency
-            FROM $invoice_payments_table
+        $payments = "SELECT SUM($payment_allocations_table.amount_applied) AS total,$clients_table.currency AS currency
+            FROM $payment_allocations_table
+            JOIN $invoice_payments_table ON $invoice_payments_table.id=$payment_allocations_table.invoice_payment_id
+            JOIN $invoices_table ON $invoices_table.id=$payment_allocations_table.invoice_id
             JOIN $clients_table ON $clients_table.id=$invoice_payments_table.client_id
-            WHERE $invoice_payments_table.deleted=0 AND $invoice_payments_table.status='active' AND $clients_table.deleted=0 $payment_where
+            WHERE $payment_allocations_table.deleted=0 AND $payment_allocations_table.status='active'
+                AND $invoice_payments_table.deleted=0 AND $invoice_payments_table.status='active'
+                AND $invoices_table.deleted=0 AND $invoices_table.status IN ('not_paid','partially_paid','paid')
+                AND $clients_table.deleted=0 $payment_where
             GROUP BY currency";
 
         $now = get_my_local_time("Y-m-d");
 
         $invoices = "SELECT SUM($invoices_table.invoice_total) AS total, SUM(1) AS count, (SELECT $clients_table.currency FROM $clients_table WHERE $clients_table.id=$invoices_table.client_id) AS currency
             FROM $invoices_table
-            WHERE $invoices_table.deleted=0 AND $invoices_table.status='not_paid' $where
+            WHERE $invoices_table.deleted=0 AND $invoices_table.status IN ('not_paid','partially_paid','paid') $where
             GROUP BY currency";
 
         $draft = "SELECT SUM($invoices_table.invoice_total) AS total, SUM(1) AS count, (SELECT $clients_table.currency FROM $clients_table WHERE $clients_table.id=$invoices_table.client_id) AS currency
@@ -344,13 +349,13 @@ LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $pa
         $fully_paid = "SELECT SUM($invoices_table.invoice_total) AS total, SUM(1) AS count, (SELECT $clients_table.currency FROM $clients_table WHERE $clients_table.id=$invoices_table.client_id) AS currency
             FROM $invoices_table
 LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $payment_allocations_table pa JOIN $invoice_payments_table p ON p.id=pa.invoice_payment_id WHERE pa.deleted=0 AND pa.status='active' AND p.deleted=0 AND p.status='active' GROUP BY pa.invoice_id) AS payments_table ON payments_table.invoice_id = $invoices_table.id
-            WHERE  $invoices_table.deleted=0 AND $invoices_table.status='not_paid' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)>=($invoices_table.invoice_total-$tolarance) $where
+            WHERE  $invoices_table.deleted=0 AND ($invoices_table.status='paid' OR ($invoices_table.status='not_paid' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)>=($invoices_table.invoice_total-$tolarance))) $where
             GROUP BY currency";
 
         $partially_paid = "SELECT SUM($invoices_table.invoice_total) AS total, SUM(1) AS count, (SELECT $clients_table.currency FROM $clients_table WHERE $clients_table.id=$invoices_table.client_id) AS currency
             FROM $invoices_table
 LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $payment_allocations_table pa JOIN $invoice_payments_table p ON p.id=pa.invoice_payment_id WHERE pa.deleted=0 AND pa.status='active' AND p.deleted=0 AND p.status='active' GROUP BY pa.invoice_id) AS payments_table ON payments_table.invoice_id = $invoices_table.id
-            WHERE $invoices_table.deleted=0 AND $invoices_table.status='not_paid' AND IFNULL(payments_table.payment_received,0)>0 && TRUNCATE(IFNULL(payments_table.payment_received,0),2) < $invoices_table.invoice_total-$tolarance $where
+            WHERE $invoices_table.deleted=0 AND ($invoices_table.status='partially_paid' OR ($invoices_table.status='not_paid' AND IFNULL(payments_table.payment_received,0)>0 && TRUNCATE(IFNULL(payments_table.payment_received,0),2) < $invoices_table.invoice_total-$tolarance)) $where
             GROUP BY currency";
 
         $not_paid = "SELECT SUM($invoices_table.invoice_total) AS total, SUM(1) AS count, (SELECT $clients_table.currency FROM $clients_table WHERE $clients_table.id=$invoices_table.client_id) AS currency
@@ -362,7 +367,7 @@ LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $pa
         $overdue = "SELECT SUM($invoices_table.invoice_total - IFNULL(payments_table.payment_received,0)) AS total , SUM(1) AS count, (SELECT $clients_table.currency FROM $clients_table WHERE $clients_table.id=$invoices_table.client_id) AS currency
             FROM $invoices_table
 LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $payment_allocations_table pa JOIN $invoice_payments_table p ON p.id=pa.invoice_payment_id WHERE pa.deleted=0 AND pa.status='active' AND p.deleted=0 AND p.status='active' GROUP BY pa.invoice_id) AS payments_table ON payments_table.invoice_id = $invoices_table.id
-            WHERE $invoices_table.deleted=0  AND $invoices_table.status='not_paid' AND $invoices_table.due_date<'$now' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)<$invoices_table.invoice_total-$tolarance $where
+            WHERE $invoices_table.deleted=0  AND $invoices_table.status IN ('not_paid','partially_paid') AND $invoices_table.due_date<'$now' AND TRUNCATE(IFNULL(payments_table.payment_received,0),2)<$invoices_table.invoice_total-$tolarance $where
             GROUP BY currency";
 
         $payments_total = 0;
@@ -672,7 +677,7 @@ LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $pa
             FROM $invoices_table
             LEFT JOIN $clients_table ON $clients_table.id = $invoices_table.client_id             
 LEFT JOIN (SELECT pa.invoice_id,SUM(pa.amount_applied) payment_received FROM $payment_allocations_table pa JOIN $invoice_payments_table p ON p.id=pa.invoice_payment_id WHERE pa.deleted=0 AND pa.status='active' AND p.deleted=0 AND p.status='active' GROUP BY pa.invoice_id) AS payments_table ON payments_table.invoice_id = $invoices_table.id
-            WHERE $invoices_table.deleted=0 AND $invoices_table.status = 'not_paid' $where
+            WHERE $invoices_table.deleted=0 AND $invoices_table.status IN ('not_paid','partially_paid','paid') $where
             GROUP BY $invoices_table.client_id";
         $result = $this->db->query($sql);
 

@@ -28,6 +28,13 @@ $dynamic_class .= " " . strtolower(get_actual_controller_name($router)) . "-page
 
 <body class="<?php echo $left_menu_minimized ? "sidebar-toggled" : ""; ?> <?php echo $dynamic_class; ?>">
 
+    <?php if (config('Fiscal')->labMode) { ?>
+        <div id="ikontrol-rc1-lab-banner" role="alert" style="position:fixed;z-index:20000;left:0;right:0;top:0;background:#8b0000;color:#fff;text-align:center;font-weight:700;padding:6px 12px;letter-spacing:.03em;">
+            iKONTROL 1.1.6 RC1 — ENTORNO DE PRUEBAS: SIN VALIDEZ FISCAL
+        </div>
+        <style>body{padding-top:34px!important}.fixed-top{top:34px!important}</style>
+    <?php } ?>
+
     <?php
     if ($topbar) {
         echo view($topbar);

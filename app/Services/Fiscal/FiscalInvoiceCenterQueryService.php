@@ -67,6 +67,7 @@ final class FiscalInvoiceCenterQueryService
             'projection' => $projection,
             'cancellation' => $this->db->table('fiscal_cancellation_requests')->where('fiscal_document_id',$documentId)->orderBy('id','DESC')->get(1)->getRow(),
             'cancellation_movements' => $this->db->table('fiscal_stamp_movements')->select('movement_type,COUNT(*) operation_count,MAX(created_at) last_at',false)->where('fiscal_document_id',$documentId)->whereIn('movement_type',['cancellation_request','cancellation_status_query'])->groupBy('movement_type')->get()->getResult(),
+            'sat_status_query' => $this->db->table('fiscal_sat_status_queries')->where('fiscal_document_id',$documentId)->orderBy('id','DESC')->get(1)->getRow(),
         ];
     }
 
@@ -75,10 +76,11 @@ final class FiscalInvoiceCenterQueryService
         return $this->db->table('fiscal_documents d')->select(implode(',', [
             'd.id','d.invoice_id','d.issuer_profile_id','d.document_type','d.series','d.folio',
             'd.issue_date','d.subtotal','d.transferred_tax_total','d.withheld_tax_total','d.total','d.status','d.environment','d.data_origin','d.is_test_fixture',
-            'r.legal_name receiver_name','r.rfc receiver_rfc','s.uuid','s.stamp_date','s.pdf_status',
+            'r.legal_name receiver_name','r.rfc receiver_rfc','s.uuid','s.stamp_date','s.provider stamp_provider','s.pdf_status',
             's.pac_pdf_artifact_id','bp.provider pdf_provider','c.id cancellation_request_id','c.status cancellation_request_status',
             '(CASE WHEN EXISTS (SELECT 1 FROM '.$this->db->prefixTable('fiscal_cancellation_artifacts').' ca WHERE ca.fiscal_cancellation_request_id=c.id AND ca.artifact_type=\'cancellation_ack\') THEN 1 ELSE 0 END) cancellation_ack_available',
             'c.cancelled_at','pa.status pdf_attempt_status','pa.requires_reconciliation pdf_requires_reconciliation',
+            'sq.normalized_status sat_query_status','sq.authoritative_status sat_authoritative_status','sq.completed_at sat_last_queried_at','sq.requires_reconciliation sat_requires_reconciliation',
             '(SELECT GROUP_CONCAT(COALESCE(NULLIF(i.display_id,\'\'),CONCAT(\'#\',i.id)) ORDER BY i.id SEPARATOR \', \') FROM '.$this->db->prefixTable('fiscal_document_sales').' fds LEFT JOIN '.$this->db->prefixTable('invoices').' i ON i.id=fds.sale_id WHERE fds.fiscal_document_id=d.id) related_sales',
             '(CASE WHEN EXISTS (SELECT 1 FROM '.$this->db->prefixTable('fiscal_document_metadata').' fm WHERE fm.fiscal_document_id=d.id AND fm.metadata_json LIKE \'%"source":"imported_test_fixture"%\') THEN 1 ELSE 0 END) is_imported_fixture',
         ]), false)
@@ -87,6 +89,7 @@ final class FiscalInvoiceCenterQueryService
             ->join('fiscal_document_binary_artifacts bp', 'bp.id=s.pac_pdf_artifact_id AND bp.fiscal_document_id=d.id', 'left')
             ->join($this->db->prefixTable('fiscal_cancellation_requests').' c', 'c.id=(SELECT MAX(cr.id) FROM '.$this->db->prefixTable('fiscal_cancellation_requests').' cr WHERE cr.fiscal_document_id=d.id)', 'left', false)
             ->join($this->db->prefixTable('fiscal_pdf_generation_attempts').' pa', 'pa.id=(SELECT MAX(pga.id) FROM '.$this->db->prefixTable('fiscal_pdf_generation_attempts').' pga WHERE pga.document_id=d.id)', 'left', false)
+            ->join($this->db->prefixTable('fiscal_sat_status_queries').' sq', 'sq.id=(SELECT MAX(ssq.id) FROM '.$this->db->prefixTable('fiscal_sat_status_queries').' ssq WHERE ssq.fiscal_document_id=d.id)', 'left', false)
             ->where('d.deleted', 0);
     }
 
@@ -117,7 +120,7 @@ final class FiscalInvoiceCenterQueryService
     {
         if (!$row->cancellation_request_id) return 'none';
         return match ((string) $row->cancellation_request_status) {
-            'requested'=>'requested','sending','pending'=>'pending',
+            'requested'=>'requested','sending','pending'=>'pending','pending_acceptance'=>'pending_acceptance',
             'accepted'=>$row->cancelled_at?'cancelled':'accepted',
             'rejected'=>'rejected','unknown'=>'unknown',default=>'unknown',
         };

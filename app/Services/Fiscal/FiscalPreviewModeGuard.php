@@ -19,14 +19,16 @@ final class FiscalPreviewModeGuard
         return (bool) config('Fiscal')->previewMode;
     }
 
-    public function assertStampingAllowed(): void
+    public function assertStampingAllowed(bool $requireGlobalReadiness = true): void
     {
         $fiscal = config('Fiscal');
         if ($this->isPreview() || ! $fiscal->stampingEnabled) {
             throw new RuntimeException('AMBIENTE DE VISTA PREVIA — TIMBRADO FISCAL DESHABILITADO');
         }
 
-        (new FiscalOnboardingReadinessService($this->db))->assertReadyForStamping();
+        if ($requireGlobalReadiness) {
+            (new FiscalUnifiedOnboardingService($this->db))->assertReadyForStamping();
+        }
     }
 
     public function assertCancellationAllowed(): void
@@ -36,6 +38,8 @@ final class FiscalPreviewModeGuard
             throw new RuntimeException('AMBIENTE DE VISTA PREVIA — CANCELACIÓN FISCAL DESHABILITADA');
         }
 
-        (new FiscalOnboardingReadinessService($this->db))->assertReadyForStamping();
+        // Cancellation uses the immutable evidence of one stamped document.
+        // Issuance onboarding for other clients, products or mappings is not
+        // an authorization requirement for cancelling that document.
     }
 }

@@ -84,6 +84,11 @@ final class FiscalDraftWorkflowService
             'tax_object_codes'=>$catalog($this->db,'sat_tax_object_codes'),
             'tax_codes'=>$catalog($this->db,'sat_tax_codes'),
             'payment_suggestion'=>$paymentSuggestion,
+            'global_periodicities'=>FiscalGlobalInformationService::PERIODICITIES,
+            'global_months'=>FiscalGlobalInformationService::MONTHS,
+            'global_information_required'=>(new FiscalGlobalInformationService())->isRequired(
+                $receiver?((array)$receiver+['tax_regime_code'=>(string)($this->db->table('sat_tax_regimes')->where('id',$receiver->tax_regime_id)->get(1)->getRow()?->code??'')]):[],
+                (string)($draft->cfdi_use_code??($this->db->table('sat_cfdi_uses')->where('id',$receiver->default_cfdi_use_id??0)->get(1)->getRow()?->code??'')),'I'),
             'issue_date_constraints'=>$dateConstraints,
             'saved_items'=>$draftId?$this->db->table('fiscal_draft_items')->where('fiscal_draft_id',$draftId)->get()->getResult():[],
         ];
@@ -184,6 +189,8 @@ final class FiscalDraftWorkflowService
         if(!$cfdiUse&&$receiver?->default_cfdi_use_id)$cfdiUse=$this->db->table('sat_cfdi_uses')->where(['id'=>$receiver->default_cfdi_use_id,'is_active'=>1])->get(1)->getRow();
         $seriesId=(int)($input['fiscal_series_id']??0);
         $series=$this->db->table('fiscal_series')->where(['id'=>$seriesId,'issuer_profile_id'=>$issuerId,'environment'=>config('Fiscal')->environment,'is_active'=>1,'deleted'=>0])->groupStart()->where('document_type','income')->orWhere('document_type','ingreso')->orWhere('document_type','I')->groupEnd()->get(1)->getRow();
+        $operationDates=array_column($this->db->table('invoices')->select('bill_date')->whereIn('id',$saleIds)->get()->getResultArray(),'bill_date');
+        $global=(new FiscalGlobalInformationService())->validate($input,(array)$receiver+['tax_regime_code'=>(string)($regime->code??'')],(string)($cfdiUse->code??''),'I',$issueDate,$operationDates,(array)$issuer+['tax_regime_code'=>(string)($issuerRegime->code??'')]);
         $draftData = [
             'issuer_id'=>$issuerId,'receiver_profile_id'=>$receiverId,
             'fiscal_series_id'=>$seriesId?:null,
@@ -194,6 +201,7 @@ final class FiscalDraftWorkflowService
             'payment_form_code'=>trim((string)($input['payment_form_code']??'')),
             'payment_method_code'=>trim((string)($input['payment_method_code']??'')),
             'cfdi_use_code'=>(string)($cfdiUse->code??''),
+            'global_periodicity'=>$global['global_periodicity'],'global_months'=>$global['global_months'],'global_year'=>$global['global_year'],
             'receiver_tax_regime_code'=>(string)($regime->code??''),
             'receiver_postal_code'=>(string)($receiver->fiscal_postal_code??''),
             'expedition_postal_code'=>(string)($issuer->expedition_postal_code??''),
@@ -214,6 +222,7 @@ final class FiscalDraftWorkflowService
             'issuer_snapshot'=>$issuer?((array)$issuer+['tax_regime_code'=>(string)($issuerRegime->code??'')]):[],
             'receiver_snapshot'=>$receiver?(array)$receiver:[],
             'series_snapshot'=>$series?(array)$series:[],
+            'global_information'=>$global,
             'concepts'=>$concepts,'taxes'=>array_map(static fn(array$c):array=>['sale_item_id'=>$c['sale_item_id'],'tax'=>$c['tax']],$concepts),
             'observations'=>$draftData['observations'],'validation'=>$validation,
         ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);
@@ -251,7 +260,7 @@ final class FiscalDraftWorkflowService
             if ($draftData['status']==='ready') $this->audit($id,null,$userId,'draft_marked_ready',['validation'=>'complete']);
             if (!$this->db->transStatus()) throw new RuntimeException('No fue posible guardar el borrador.');
             $this->db->transCommit();
-            return ['id'=>$id,'status'=>$draftData['status'],'validation'=>$validation];
+            return ['id'=>$id,'status'=>$draftData['status'],'validation'=>$validation,'global_information'=>$global];
         } catch (Throwable $e) {
             $this->db->transRollback();
             if (str_contains($e->getMessage(),'EXCEEDS_AVAILABLE')) throw new RuntimeException('El saldo disponible de una o mÃ¡s ventas cambiÃ³. Revisa las asignaciones antes de guardar nuevamente.');
@@ -279,6 +288,16 @@ final class FiscalDraftWorkflowService
     {
         $draft=$this->draft($draftId);
         if(!in_array($draft->status,['draft','ready','error'],true))throw new RuntimeException('El estado del borrador no permite marcarlo como listo.');
+        try {
+            (new FiscalDraftSnapshotService($this->db))->getCompleteFiscalSnapshot($draftId);
+        } catch (RuntimeException $exception) {
+            $message = match ($exception->getMessage()) {
+                'FISCAL_DRAFT_SNAPSHOT_INCOMPLETE' => 'El borrador debe editarse y guardarse nuevamente antes de marcarlo como listo.',
+                'FISCAL_DRAFT_SNAPSHOT_CORRUPT', 'FISCAL_DRAFT_SNAPSHOT_UNSUPPORTED' => 'El snapshot fiscal no se puede recuperar. Revise y guarde nuevamente el borrador antes de continuar.',
+                default => throw $exception,
+            };
+            throw new RuntimeException($message, 0, $exception);
+        }
         $allocations=$this->db->table('fiscal_draft_sales')->where(['fiscal_draft_id'=>$draftId,'allocation_status'=>'reserved'])->get()->getResultArray();
         $rows=$this->db->table('fiscal_draft_items')->where('fiscal_draft_id',$draftId)->get()->getResultArray();$concepts=[];
         foreach($rows as$row){$concepts[]=['quantity'=>$row['quantity'],'total'=>$row['total'],'snapshot'=>json_decode((string)$row['fiscal_snapshot'],true)?:[]];}

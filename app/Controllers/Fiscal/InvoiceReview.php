@@ -14,14 +14,14 @@ use App\Services\Fiscal\Cfdi40\CfdiPreXmlArtifactService;
 use App\Services\Fiscal\Cfdi40\CfdiXsdValidator;
 use App\Services\Fiscal\Cfdi40\CfdiSigningService;
 use App\Services\Fiscal\FiscalArtifactStorageService;
+use App\Services\Fiscal\FiscalRuntimeDiagnosticService;
 use App\Models\Fiscal\Fiscal_document_artifacts_model;
 use App\Services\Fiscal\Pac\FiscalDocumentStatusPresenter;
-use App\Services\Fiscal\Pac\FiscalPacAdapterFactory;
 use App\Domain\Fiscal\Signing\CsdSecretException;
 use App\Services\Fiscal\Signing\CsdOperationalStatusService;
 use App\Services\Fiscal\FiscalInvoiceGenerationService;
-use App\Services\Fiscal\FiscalOnboardingReadinessService;
-use App\Services\Fiscal\FiscalReadinessActionService;
+use App\Services\Fiscal\FiscalUnifiedOnboardingService;
+use App\Services\Fiscal\FiscalUnifiedReadinessActionService;
 use App\Services\Fiscal\FiscalIssuerResolver;
 use App\Services\Fiscal\FiscalRuntimeContext;
 
@@ -45,8 +45,8 @@ class InvoiceReview extends Security_Controller
   $dropdown=function(string$table)use($db):array{$out=[];foreach($db->table($table)->where('is_active',1)->orderBy('code')->get()->getResult()as$r)$out[$r->code]=$r->code.' · '.$r->name;return$out;};
   $paymentSuggestion=(new CfdiPaymentRuleService($db))->suggest((int)$invoiceId);
   $csdSummary=$review['csd'];
-  $onboarding=(new FiscalOnboardingReadinessService($db))->inspect();
-  $blockerGroups=(new FiscalReadinessActionService())->saleBlockerGroups($review,$onboarding,(int)$invoice->client_id);
+  $onboarding=(new FiscalUnifiedOnboardingService($db))->inspect();
+  $blockerGroups=(new FiscalUnifiedReadinessActionService())->saleBlockerGroups($review,$onboarding,(int)$invoice->client_id);
   return$this->template->view('fiscal/invoices/review',['review'=>$review,'blocker_groups'=>$blockerGroups,'issuers'=>$issuers,'receivers'=>$receivers,'series_options'=>$series,'simulation'=>$simulation,'simulation_error'=>$simulationError,'can_override'=>$canOverride,'can_apply'=>$this->allowed('fiscal_sales_pricing_apply'),'can_create_draft'=>$this->allowed('fiscal_drafts_create'),'can_generate'=>$this->allowed('fiscal_stamp_sandbox'),'can_view_drafts'=>$this->allowed('fiscal_drafts_view'),'payment_forms'=>$dropdown('sat_payment_forms'),'payment_methods'=>$dropdown('sat_payment_methods'),'payment_suggestion'=>$paymentSuggestion,'currencies'=>$dropdown('sat_currencies'),'drafts'=>(new Fiscal_documents_model())->forInvoice((int)$invoiceId)->getResult(),'csd_summary'=>$csdSummary,'pac_status'=>$this->pacStatusForViewer(),'can_advanced'=>$this->login_user->is_admin]);
  }
  public function apply():void{$invoiceId=(int)$this->request->getPost('invoice_id');$this->guard($invoiceId,'fiscal_sales_pricing_apply');try{$result=(new SaleTaxAdjustmentService())->confirmAndApply((int)$this->request->getPost('preparation_id'),(int)$this->login_user->id,(bool)$this->request->getPost('confirm_adjustment'));echo json_encode(['success'=>true,'message'=>app_lang('fiscal_sale_adjustment_applied'),'data'=>$result]);}catch(\Throwable$e){log_message('warning','Fiscal sale adjustment rejected: {message}',['message'=>$e->getMessage()]);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);}}
@@ -105,8 +105,8 @@ public function generate($routeInvoiceId=0):void{
   return$this->response->setStatusCode($status)->setBody('<div class="modal-body"><div class="alert alert-danger">'.htmlspecialchars($message,ENT_QUOTES,'UTF-8').'</div></div><div class="modal-footer"><button type="button" class="btn btn-default" data-bs-dismiss="modal">'.htmlspecialchars(app_lang('close'),ENT_QUOTES,'UTF-8').'</button></div>');
  }
  private function pacStatusForViewer():object{
-  try{$fiscal=config('Fiscal');$provider=config('TimbradorXpress');(new FiscalPacAdapterFactory($fiscal,$provider))->create();return(object)['provider'=>$fiscal->pacAdapter,'environment'=>$fiscal->environment,'configured'=>true,'production_enabled'=>false,'configuration_error'=>null];}
-  catch(\Throwable$e){log_message('warning','PAC status unavailable while rendering fiscal document: {type}',['type'=>get_class($e)]);return(object)['provider'=>'unavailable','environment'=>'local','configured'=>false,'production_enabled'=>false,'configuration_error'=>app_lang('pac_not_configured')];}
+   try{$runtime=(new FiscalRuntimeDiagnosticService())->inspect();return(object)['provider'=>$runtime['pac_provider'],'environment'=>$runtime['fiscal_environment'],'configured'=>$runtime['pac_operational'],'production_enabled'=>$runtime['production_guard_satisfied'],'configuration_error'=>$runtime['blocking_reasons'][0]??null,'context_id'=>$runtime['context_id']];}
+   catch(\Throwable$e){log_message('warning','PAC status unavailable while rendering fiscal document: {type}',['type'=>get_class($e)]);return(object)['provider'=>'unavailable','environment'=>'development','configured'=>false,'production_enabled'=>false,'configuration_error'=>app_lang('pac_not_configured')];}
  }
  public function draft_action():void{
   $id=(int)$this->request->getPost('document_id');$row=db_connect()->table('fiscal_documents')->where('id',$id)->get(1)->getRow();if(!$row){echo json_encode(['success'=>false,'message'=>app_lang('fiscal_draft_not_found')]);return;}

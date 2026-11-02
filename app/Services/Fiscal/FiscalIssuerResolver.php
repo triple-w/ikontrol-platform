@@ -29,7 +29,7 @@ final class FiscalIssuerResolver
     /** Issuer identity/configuration candidates, independent from CSD readiness. */
     public function profileCandidates(?int $companyId=null,?string $environment=null,?DateTimeImmutable $on=null):array
     {
-        $environment=strtolower(trim((string)($environment?:config('Fiscal')->environment)));$moment=$on?:new DateTimeImmutable('now');$today=$moment->format('Y-m-d');
+        $environment=strtolower(trim((string)($environment?:FiscalRuntimeContext::fiscalEnvironment(config('Fiscal')))));$moment=$on?:new DateTimeImmutable('now');$today=$moment->format('Y-m-d');
         $builder=$this->db->table('fiscal_profiles fp')->select('fp.*')->where('fp.profile_type','issuer')->whereIn('fp.status',['active','ready'])->groupStart()->where('fp.valid_from',null)->orWhere('fp.valid_from <=',$today)->groupEnd()->groupStart()->where('fp.valid_to',null)->orWhere('fp.valid_to >=',$today)->groupEnd();
         if($companyId!==null)$builder->where('fp.company_id',$companyId);if($environment!=='')$builder->where('fp.environment',$environment);
         $profiles=$builder->orderBy('fp.is_default','DESC')->orderBy('fp.id','ASC')->get()->getResult();

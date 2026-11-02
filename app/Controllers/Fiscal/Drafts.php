@@ -9,8 +9,8 @@ use App\Services\Fiscal\FiscalDraftSnapshotService;
 use App\Services\Fiscal\FiscalDraftStampingService;
 use App\Services\Fiscal\FiscalPreInvoiceService;
 use App\Services\Fiscal\FiscalReviewPresenter;
-use App\Services\Fiscal\FiscalOnboardingReadinessService;
-use App\Services\Fiscal\FiscalReadinessActionService;
+use App\Services\Fiscal\FiscalUnifiedOnboardingService;
+use App\Services\Fiscal\FiscalUnifiedReadinessActionService;
 use App\Services\Fiscal\FiscalInvoiceFlowService;
 use App\Services\Fiscal\FiscalReviewPreparation;
 use App\Services\Fiscal\FiscalSaleAttemptResolver;
@@ -80,9 +80,29 @@ final class Drafts extends Security_Controller
         $items=$db->table('fiscal_draft_items')->where('fiscal_draft_id',(int)$draftId)->get()->getResult();
         $audit=$db->table('fiscal_draft_audit a')->select('a.event,a.created_at,u.first_name,u.last_name')->join('users u','u.id=a.user_id','left')->where('a.fiscal_draft_id',(int)$draftId)->orderBy('a.id','DESC')->get()->getResult();
         $payload=json_decode((string)$draft->fiscal_payload,true)?:[];[$label,$color]=(new FiscalDraftStatusPresenter())->present($draft->status);
-        $snapshot=null;try{$snapshot=(new FiscalDraftSnapshotService($db))->getCompleteFiscalSnapshot((int)$draftId);}catch(Throwable){}
-        $preflight=(new FiscalDraftStampingService($db))->preflight((int)$draftId);$certificate=$db->table('fiscal_issuer_certificates')->where(['issuer_profile_id'=>$draft->issuer_id,'deleted'=>0])->orderBy('is_default','DESC')->get(1)->getRow();$attempts=$artifacts=[];if($draft->fiscal_document_id){$attempts=$db->table('fiscal_stamp_attempts')->where('fiscal_document_id',$draft->fiscal_document_id)->orderBy('id','DESC')->get()->getResult();$artifacts=$db->table('fiscal_document_artifacts')->where('fiscal_document_id',$draft->fiscal_document_id)->orderBy('id','DESC')->get()->getResult();}
-        return$this->template->rander('fiscal/drafts/show',compact('draft','sales','items','audit','payload','label','color','snapshot','preflight','certificate','attempts','artifacts')+['can_edit'=>$this->allowed('fiscal.drafts.edit'),'can_discard'=>$this->allowed('fiscal.drafts.discard'),'can_stamp'=>$this->allowed('fiscal.invoices.stamp')]);
+        $snapshot=null;$snapshotState='valid';$snapshotError=null;
+        try{$snapshot=(new FiscalDraftSnapshotService($db))->getCompleteFiscalSnapshot((int)$draftId);}
+        catch(\RuntimeException$exception){
+            $snapshotState=match($exception->getMessage()){
+                'FISCAL_DRAFT_SNAPSHOT_INCOMPLETE'=>'incomplete',
+                'FISCAL_DRAFT_SNAPSHOT_CORRUPT','FISCAL_DRAFT_SNAPSHOT_UNSUPPORTED'=>'corrupt',
+                default=>'unavailable',
+            };
+            $snapshotError=match($snapshotState){
+                'incomplete'=>'El borrador está incompleto o requiere actualización. Edítelo y guárdelo nuevamente; no se generaron partidas.',
+                'corrupt'=>'El snapshot fiscal está dañado o no es compatible. No se generaron partidas; revise y guarde nuevamente el borrador.',
+                default=>'No fue posible recuperar el snapshot fiscal del borrador.',
+            };
+        }catch(Throwable$exception){
+            $snapshotState='unavailable';$reference='FD-'.strtoupper(substr(hash('sha256',(string)$draftId.':'.microtime(true)),0,10));
+            log_message('error','Fiscal draft snapshot recovery failed {reference} for draft {draft_id}: {exception}',[
+                'reference'=>$reference,'draft_id'=>(int)$draftId,'exception'=>get_class($exception),
+            ]);
+            $snapshotError='No fue posible recuperar el snapshot fiscal. Referencia técnica: '.$reference;
+        }
+        $preflight=$snapshotState==='valid'?(new FiscalDraftStampingService($db))->preflight((int)$draftId):['allowed'=>false,'errors'=>[$snapshotError]];
+        $certificate=$db->table('fiscal_issuer_certificates')->where(['issuer_profile_id'=>$draft->issuer_id,'deleted'=>0])->orderBy('is_default','DESC')->get(1)->getRow();$attempts=$artifacts=[];if($draft->fiscal_document_id){$attempts=$db->table('fiscal_stamp_attempts')->where('fiscal_document_id',$draft->fiscal_document_id)->orderBy('id','DESC')->get()->getResult();$artifacts=$db->table('fiscal_document_artifacts')->where('fiscal_document_id',$draft->fiscal_document_id)->orderBy('id','DESC')->get()->getResult();}
+        return$this->template->rander('fiscal/drafts/show',compact('draft','sales','items','audit','payload','label','color','snapshot','snapshotState','snapshotError','preflight','certificate','attempts','artifacts')+['can_edit'=>$this->allowed('fiscal.drafts.edit'),'can_discard'=>$this->allowed('fiscal.drafts.discard'),'can_stamp'=>$this->allowed('fiscal.invoices.stamp')]);
     }
 
     public function edit($draftId=0)
@@ -167,9 +187,9 @@ final class Drafts extends Security_Controller
     private function review(array$data):array
     {
         $review=(new FiscalReviewPresenter())->present($data,$this->allowed('fiscal.advanced.view'));
-        $onboarding=(new FiscalOnboardingReadinessService())->inspect();
+        $onboarding=(new FiscalUnifiedOnboardingService())->inspect();
         $clientId=(int)($data['sales'][0]['sale']->client_id??0);
-        $review['blocker_groups']=(new FiscalReadinessActionService())->draftBlockerGroups($review['blockers'],$onboarding,$clientId);
+        $review['blocker_groups']=(new FiscalUnifiedReadinessActionService())->draftBlockerGroups($review['blockers'],$onboarding,$clientId);
         if($review['blocker_groups'])$review['status']='review_needed';
         return$review;
     }
@@ -188,6 +208,6 @@ final class Drafts extends Security_Controller
     private function guard(string$p):void{if(!$this->allowed($p))app_redirect('forbidden');}
     private function guardAny(array$permissions):void{foreach($permissions as$permission)if($this->allowed($permission))return;app_redirect('forbidden');}
     private function statusOptions():array{return[''=>'Todos','draft'=>'Incompleto','ready'=>'Listo para facturar','stamping'=>'En preparación','stamped'=>'Facturado','discarded'=>'Descartado','expired'=>'Expirado','error'=>'Error'];}
-    private function safeMessage(Throwable$e):string{$known=['La venta no existe.','Selecciona al menos una venta.','Una venta cancelada no puede facturarse.','Las ventas seleccionadas no son compatibles.','La cantidad seleccionada no es válida.','Selecciona al menos un concepto con cantidad mayor que cero.','El saldo disponible de una o más ventas cambió. Revisa las asignaciones antes de guardar nuevamente.'];return in_array($e->getMessage(),$known,true)||str_starts_with($e->getMessage(),'Falta ')||str_contains($e->getMessage(),'fecha de expedición')?$e->getMessage():'No fue posible completar la operación del borrador.';}
+    private function safeMessage(Throwable$e):string{$known=['La venta no existe.','Selecciona al menos una venta.','Una venta cancelada no puede facturarse.','Las ventas seleccionadas no son compatibles.','La cantidad seleccionada no es válida.','Selecciona al menos un concepto con cantidad mayor que cero.','El saldo disponible de una o más ventas cambió. Revisa las asignaciones antes de guardar nuevamente.','El borrador debe editarse y guardarse nuevamente antes de marcarlo como listo.','El snapshot fiscal no se puede recuperar. Revise y guarde nuevamente el borrador antes de continuar.'];$message=$e->getMessage();return in_array($message,$known,true)||str_starts_with($message,'Falta ')||str_contains($message,'fecha de expedición')||str_contains($message,'factura global')||str_contains($message,'Periodicidad')||str_contains($message,'PUBLICO EN GENERAL')||str_contains($message,'Meses')?$message:'No fue posible completar la operación del borrador.';}
     private function workflowError(Throwable$e):string{$safe=$this->safeMessage($e);if($safe!=='No fue posible completar la operación del borrador.')return$safe;$reference='FD-'.strtoupper(substr(hash('sha256',get_class($e).'|'.$e->getMessage().'|'.$e->getFile().'|'.$e->getLine().'|'.microtime(true)),0,10));log_message('error','Fiscal draft workflow failure ref={reference} class={class} message={message} file={file} line={line}',['reference'=>$reference,'class'=>get_class($e),'message'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);return'No fue posible preparar la factura. Referencia técnica: '.$reference;}
 }

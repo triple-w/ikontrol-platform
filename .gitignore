@@ -17,6 +17,9 @@ Thumbs.db
 # Local legacy database source used only for directed bridge validation.
 docs/tws001_smartfree.sql
 
+# Local PAC references may contain API keys or private-key material.
+docs/fiscal/referencias-locales/
+
 .idea/
 .vscode/
 app/ThirdParty/Stripe/vendor/stripe/stripe-php/README.md

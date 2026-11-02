@@ -234,6 +234,17 @@ class Invoices extends Security_Controller {
             app_redirect("forbidden");
         }
 
+        $submitted_client_id = (int) $this->request->getPost('invoice_client_id');
+        if ($submitted_client_id < 1) {
+            echo json_encode(["success"=>false,"message"=>"Selecciona un cliente para guardar la venta.","field_errors"=>["invoice_client_id"=>"Selecciona un cliente para guardar la venta."]]);
+            return;
+        }
+        $submitted_client = $this->Clients_model->get_one($submitted_client_id);
+        if (!$submitted_client || !(int)($submitted_client->id ?? 0) || (int)($submitted_client->deleted ?? 0) === 1 || (int)($submitted_client->is_lead ?? 0) === 1) {
+            echo json_encode(["success"=>false,"message"=>"El cliente seleccionado no esta activo o ya no esta disponible.","field_errors"=>["invoice_client_id"=>"Selecciona un cliente activo."]]);
+            return;
+        }
+
         $this->validate_submitted_data(array(
             "id" => "numeric",
             "invoice_client_id" => "required|numeric",
@@ -241,7 +252,7 @@ class Invoices extends Security_Controller {
             "invoice_due_date" => "required"
         ));
 
-        $client_id = $this->request->getPost('invoice_client_id');
+        $client_id = $submitted_client_id;
 
         $target_path = get_setting("timeline_file_path");
         $files_data = move_files_from_temp_dir_to_permanent_dir($target_path, "invoice");
@@ -794,7 +805,7 @@ class Invoices extends Security_Controller {
 
         $delete = '';
         if ($this->can_delete_invoices($data->id)) {
-            $delete = '<li role="presentation">' . js_anchor("<i data-feather='x' class='icon-16'></i>" . app_lang('delete'), array('title' => app_lang('delete_invoice'), "class" => "delete dropdown-item", "data-id" => $data->id, "data-action-url" => get_uri("invoices/delete"), "data-action" => "delete-confirmation")) . '</li>';
+            $delete = '<li role="presentation">' . modal_anchor(get_uri("invoices/cancel_sale_form"),"<i data-feather='x-circle' class='icon-16'></i> Cancelar venta",array('title'=>'Cancelar venta','class'=>'dropdown-item','data-post-id'=>$data->id)) . '</li>';
         }
 
         $add_payment = '<li role="presentation">' . modal_anchor(get_uri("invoice_payments/payment_modal_form"), "<i data-feather='plus-circle' class='icon-16'></i> " . app_lang('add_payment'), array("title" => app_lang('add_payment'), "data-post-invoice_id" => $data->id, "class" => "dropdown-item")) . '</li>';
@@ -1303,6 +1314,13 @@ class Invoices extends Security_Controller {
             $invoice_data = get_invoice_making_data($invoice_id);
             $this->_check_invoice_access_permission($invoice_data);
 
+            // TCPDF writes the PDF body directly. Explicitly register the media
+            // type on the framework response as well, otherwise CodeIgniter can
+            // retain its default text/html header after the controller returns.
+            if ($mode === "download" || ($mode === "view" && !$is_mobiel_preview)) {
+                $this->response->setContentType("application/pdf");
+            }
+
             if ($user_language) {
                 $language = service('language');
 
@@ -1643,7 +1661,9 @@ class Invoices extends Security_Controller {
                             ? 'La venta tiene facturas fiscales vigentes y no puede cancelarse.'
                             : ($exception->getMessage() === 'FISCAL_SALE_HAS_ACTIVE_DRAFTS'
                                 ? 'La venta tiene borradores fiscales activos y no puede cancelarse.'
-                                : 'No fue posible cancelar la venta.')
+                                : ($exception->getMessage() === 'SALE_HAS_ACTIVE_PAYMENT_ALLOCATIONS'
+                                    ? 'La venta tiene pagos aplicados. Retire o cancele las aplicaciones antes de cancelar la venta.'
+                                    : 'No fue posible cancelar la venta.'))
                     ));
                     return "";
                 }
@@ -1670,6 +1690,28 @@ class Invoices extends Security_Controller {
         }
 
         return "";
+    }
+
+    function cancel_sale_form() {
+        $id=(int)$this->request->getPost('id');
+        if(!$id||!$this->can_edit_invoices($id))app_redirect('forbidden');
+        $invoice=$this->Invoices_model->get_details(['id'=>$id])->getRow();
+        if(!$invoice)throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        $decision=(new \App\Services\Sales\SaleLifecycleService())->canCancel($id,(int)$this->login_user->id);
+        return $this->template->view('invoices/cancel_sale_form',['invoice'=>$invoice,'decision'=>$decision]);
+    }
+
+    function cancel_sale() {
+        $this->validate_submitted_data(['id'=>'required|numeric','cancellation_reason'=>'required']);
+        $id=(int)$this->request->getPost('id');
+        if(!$this->can_edit_invoices($id))app_redirect('forbidden');
+        try{
+            (new \App\Services\Sales\SaleLifecycleService())->cancel($id,(int)$this->login_user->id,(string)$this->request->getPost('cancellation_reason'));
+            echo json_encode(['success'=>true,'message'=>'La venta fue cancelada sin eliminar su historial.']);
+        }catch(\Throwable$e){
+            $messages=['FISCAL_SALE_HAS_ACTIVE_DOCUMENTS'=>'La venta tiene un CFDI vigente o una cancelaciÃ³n fiscal pendiente.','FISCAL_SALE_HAS_ACTIVE_DRAFTS'=>'La venta tiene borradores fiscales activos.','SALE_HAS_ACTIVE_PAYMENT_ALLOCATIONS'=>'La venta tiene pagos aplicados. Cancele o revierta sus aplicaciones antes de cancelar la venta.','SALE_CANCELLATION_REASON_REQUIRED'=>'Indique el motivo administrativo de la cancelaciÃ³n.'];
+            echo json_encode(['success'=>false,'message'=>$messages[$e->getMessage()]??'La venta no cumple las condiciones para cancelarse.']);
+        }
     }
 
     function close_sale($invoice_id = 0) {

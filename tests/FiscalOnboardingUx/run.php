@@ -40,7 +40,11 @@ $readiness = [
         'series' => ['status' => 'MISSING'], 'pac' => ['status' => 'MISSING'],
         'catalogs' => ['product-service' => ['status' => 'PARTIAL']],
         'products' => ['incomplete' => 2], 'clients' => ['incomplete' => 1],
-        'payment_methods' => ['available' => 2, 'mapped' => 1], 'stamping' => ['status' => 'BLOCKED'],
+        'payment_methods' => [
+            'configured' => 2, 'available' => 2, 'mapped' => 1, 'unmapped' => 1,
+            'issues' => [['ready' => false, 'message' => 'Sin mapping']],
+        ],
+        'stamping' => ['status' => 'BLOCKED'],
     ],
 ];
 $actions = new FiscalReadinessActionService();
@@ -53,7 +57,7 @@ $assert($series['action']['path'] === 'fiscal/series' && $series['status'] === '
 $saleReview = ['errors' => ['issuer' => ['Falta RFC.'], 'series' => ['Falta serie.'], 'receiver' => ['Falta régimen.'], 'items' => ['Producto incompleto.'], 'sale' => []]];
 $groups = $actions->saleBlockerGroups($saleReview, $readiness, 55);
 $assert($groups['issuer']['items'][0]['path'] === 'fiscal/issuers' && $groups['receiver']['items'][0]['path'] === 'clients/view/55', 'venta agrupa blockers y enlaza emisor y cliente');
-$assert(isset($groups['csd'], $groups['pac'], $groups['payment_methods'], $groups['catalogs']), 'venta incorpora blockers globales desde readiness sin duplicar reglas');
+$assert(isset($groups['csd'], $groups['pac'], $groups['catalogs']) && ! isset($groups['payment_methods']), 'venta conserva blockers fiscales globales sin bloquear por mappings administrativos no utilizados');
 
 $fiscalMode = (object) ['runtimeMode' => 'integration', 'enabled' => true, 'environment' => 'development', 'pacAdapter' => 'timbradorxpress', 'allowRealPac' => false, 'stampingEnabled' => false, 'csdEncryptionKey' => '', 'pacEncryptionKey' => ''];
 $mode = (new FiscalInstanceModeService($db, $fiscalMode, (object) [], static fn (): array => $readiness))->inspect();

@@ -22,12 +22,17 @@ class Fiscal extends BaseConfig
 
     public bool $allowRealPac = false;
     public bool $allowExternalPdf = false;
+    public bool $environmentSelectorEnabled = false;
+    public bool $environmentSelectorPreviewOnly = true;
+    public bool $labMode = false;
+    public bool $labSandboxTransport = false;
 
     public string $privateStoragePath = WRITEPATH . 'fiscal-private';
 
     public string $pacAdapter = 'fake';
 
     public string $fakePacScenario = 'success';
+    public string $fakeCancellationScenario = 'accepted';
 
     /**
      * Local master key used only for encrypted persistent fiscal contingencies.
@@ -48,6 +53,8 @@ class Fiscal extends BaseConfig
      * This threshold never triggers an automatic retry or a database update.
      */
     public int $stampingSendingStaleMinutes = 5;
+    /** Manual SAT status checks never auto-retry inside this cooldown. */
+    public int $satStatusCooldownSeconds = 60;
     public int $maxIssueAgeHours = 72;
     public bool $allowFutureIssueDate = false;
 
@@ -76,20 +83,40 @@ class Fiscal extends BaseConfig
         }
         $this->allowRealPac = filter_var(env('fiscal.allowRealPac', false), FILTER_VALIDATE_BOOL);
         $this->allowExternalPdf = filter_var(env('fiscal.allowExternalPdf', false), FILTER_VALIDATE_BOOL);
+        $this->environmentSelectorEnabled = ENVIRONMENT !== 'production'
+            && filter_var(env('fiscal.environmentSelectorEnabled', false), FILTER_VALIDATE_BOOL);
+        // The shipped selector is intentionally preview-only and never writes .env.
+        $this->environmentSelectorPreviewOnly = true;
+        $this->labMode = filter_var(env('IKONTROL_RC1_LAB', false), FILTER_VALIDATE_BOOL);
+        $this->labSandboxTransport = filter_var(env('IKONTROL_RC1_SANDBOX_TRANSPORT', false), FILTER_VALIDATE_BOOL);
         $this->pacAdapter = strtolower(trim((string) env('fiscal.pacAdapter', 'fake')));
-        if ($this->runtimeMode !== 'automated_test' && $this->pacAdapter === 'fake') {
+        if ($this->runtimeMode !== 'automated_test' && $this->pacAdapter === 'fake' && ! $this->labMode) {
             throw new \RuntimeException('FakePacAdapter no está permitido fuera de pruebas automatizadas.');
         }
         $scenario = strtolower(trim((string) env('fiscal.fakePacScenario', 'success')));
         $this->fakePacScenario = in_array($scenario, [
             'success', 'rejected', 'timeout_unknown', 'transport_not_sent',
         ], true) ? $scenario : 'transport_not_sent';
+        $cancellationScenario = strtolower(trim((string) env('fiscal.fakeCancellationScenario', 'accepted')));
+        $this->fakeCancellationScenario = in_array($cancellationScenario, [
+            'accepted', 'pending', 'pending_acceptance', 'rejected', 'timeout_unknown', 'transport_not_sent',
+        ], true) ? $cancellationScenario : 'transport_not_sent';
+        if ($this->labMode) {
+            $fakeLab = $this->pacAdapter === 'fake' && ! $this->allowRealPac && ! $this->labSandboxTransport;
+            $sandboxLab = $this->pacAdapter === 'timbradorxpress' && $this->allowRealPac && $this->labSandboxTransport
+                && ! filter_var(env('TIMBRADORXPRESS_PRODUCTION_ENABLED', false), FILTER_VALIDATE_BOOL);
+            if (ENVIRONMENT !== 'development' || $this->runtimeMode !== 'integration'
+                || $this->environment !== 'development' || (! $fakeLab && ! $sandboxLab)) {
+                throw new \RuntimeException('RC1_LAB requiere fake aislado o sandbox TimbradorXpress explícitamente autorizado; producción permanece prohibida.');
+            }
+        }
         $this->pacEncryptionKey = trim((string) env('fiscal.pacEncryptionKey', ''));
         $this->csdEncryptionKey = strtolower(trim((string) env('fiscal.csdEncryptionKey', '')));
         $this->stampingSendingStaleMinutes = max(
             1,
             min(120, (int) env('fiscal.stampingSendingStaleMinutes', 5))
         );
+        $this->satStatusCooldownSeconds = max(0, min(3600, (int) env('fiscal.satStatusCooldownSeconds', 60)));
         $this->maxIssueAgeHours = max(1, min(720, (int) env('fiscal.maxIssueAgeHours', 72)));
         $this->allowFutureIssueDate = filter_var(
             env('fiscal.allowFutureIssueDate', false),
@@ -129,5 +156,13 @@ class Fiscal extends BaseConfig
                 'La llave CSD debe ser distinta de la llave de contingencia PAC.'
             );
         }
+    }
+
+    public function allowsLabFakePac(): bool
+    {
+        // RC1 functional acceptance must use the real TimbradorXpress sandbox.
+        // Fake adapters remain available only through the automated_test branch
+        // in their factories, never through a browser or integration runtime.
+        return false;
     }
 }

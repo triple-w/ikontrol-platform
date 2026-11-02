@@ -94,7 +94,6 @@ final class FiscalReviewPresenter
         if($field==='fiscal_postal_code')$message='El cliente necesita completar su código postal fiscal.';
         elseif($field==='tax_regime_id')$message='El cliente necesita completar su régimen fiscal.';
         elseif($field==='rfc')$message='El cliente necesita completar su RFC.';
-        elseif($field==='total')$message='El total fiscal no coincide con el total de la venta.';
         return['field'=>$field,'section'=>$section,'message'=>$message,'action'=>$section==='receiver'?'Completar datos del cliente':($section==='concepts'?'Corregir':($section==='csd'?'Configurar CSD':'Revisar'))];
     }
 

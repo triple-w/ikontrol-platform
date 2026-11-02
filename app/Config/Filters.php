@@ -72,7 +72,13 @@ class Filters extends BaseFilters
     public array $globals = [
         'before' => [
             // 'honeypot',
-            // 'csrf',
+            'csrf' => ['except' => [
+                'collect_leads/save',
+                'paypal_redirect/*',
+                'paytm_redirect/*',
+                'stripe_redirect/*',
+                'webhooks_listener/*',
+            ]],
             // 'invalidchars',
         ],
         'after' => [

@@ -8,6 +8,7 @@ $a(str_contains($f['routes'],"pdf/regenerate', 'Fiscal\\Stamping::regeneratePdf/
 $a(str_contains($f['controller'],'function regeneratePdf')&&str_contains($f['controller'],'generate($id, (int) $this->login_user->id, null, true)'),'Controller uses common service in regeneration mode.');
 $a(str_contains($f['service'],"'income','i'=>'I'")&&str_contains($f['service'],"'expense','e'=>'E'")&&str_contains($f['service'],"'payment','p'=>'P'"),'Service resolves I/E/P.');
 $a(str_contains($f['resolver'],"['I','E','P','T','N']")&&str_contains($f['resolver'],'defaultFor($type)'),'Templates resolve by issuer/type with configured fallback.');
+$a(str_contains($f['service'],'resolveForDocument($id')&&str_contains($f['resolver'],"'document'"),'Automatic generation and regeneration share document-aware template priority.');
 $a(str_contains($f['adapter'],'generarPDF')&&!preg_match('/timbrar|timbrarConSello/i',$f['adapter']),'Adapter renders without stamping.');
 $a(str_contains($f['service'],"artifact_type'=>'stamped_xml'")&&str_contains($f['service'],'uuidFromStampedXml($xml)'),'Stamped XML is authoritative.');
 $a(str_contains($f['service'],"'artifact_type'=>'pac_pdf_superseded'")&&str_contains($f['service'],"['artifact_status'=>'active']"),'Artifact is versioned and replacement activated.');

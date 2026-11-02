@@ -17,9 +17,9 @@ $flow = $read('app/Services/Fiscal/FiscalInvoiceFlowService.php');
 $lifecycle = $read('app/Services/Sales/SaleLifecycleService.php');
 $controller = $read('app/Controllers/Invoices.php');
 
-$gate = strpos($draftStamping, 'validateDraftDocumentConsistency($draftId, $documentId)');
+$gate = strpos($draftStamping, '$this->allocations->validateDraftDocumentConsistency($draftId, $documentId)');
 $sign = strpos($draftStamping, '$this->signer->sign(');
-$pacCall = strpos($draftStamping, '$this->stamping->stamp(');
+$pacCall = strpos($draftStamping, '$this->stamping->stampDraftDocument(');
 $assert($gate !== false && $sign !== false && $pacCall !== false && $gate < $sign && $gate < $pacCall,
     'La igualdad draft/document/allocations se valida antes de firma y PAC.');
 $assert(str_contains($allocation, '$draftNetSubtotal = $draftSubtotal - $draftDiscount')

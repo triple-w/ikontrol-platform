@@ -5,6 +5,7 @@ namespace App\Controllers\Fiscal;
 
 use App\Controllers\Security_Controller;
 use App\Services\Fiscal\FiscalArtifactStorageService;
+use App\Services\Fiscal\FiscalRuntimeDiagnosticService;
 use App\Services\Fiscal\Pac\FiscalDocumentStatusPresenter;
 use App\Services\Fiscal\Pac\FiscalPacAdapterFactory;
 use App\Services\Fiscal\Pac\FiscalStampingService;
@@ -21,18 +22,13 @@ final class Stamping extends Security_Controller
         $this->guard('fiscal_pac_status_view');
         $fiscal = config('Fiscal');
         $provider = config('TimbradorXpress');
-        $available = false;
-        $error = null;
-        try {
-            (new FiscalPacAdapterFactory($fiscal, $provider))->create();
-            $available = true;
-        } catch (Throwable $e) {
-            $error = 'La configuración fiscal no permite utilizar el adaptador seleccionado.';
-        }
+        $runtime = (new FiscalRuntimeDiagnosticService())->inspect($fiscal, $provider);
+        $available = $runtime['pac_operational'];
+        $error = $runtime['blocking_reasons'][0] ?? null;
 
         return $this->template->view('fiscal/pac/status', [
             'provider' => $fiscal->pacAdapter === 'fake' ? 'PAC falso' : 'TimbradorXpress',
-            'environment' => $fiscal->environment,
+            'environment' => $runtime['fiscal_environment'],
             'configured' => $available,
             'production_enabled' => false,
             'pdf_template' => $provider->pdfTemplate,
@@ -206,30 +202,11 @@ final class Stamping extends Security_Controller
     {
         $id = (int) $this->request->getPost('fiscal_document_id');
         $this->guardDocument($id, 'fiscal_stamp_status');
-        $db = db_connect();
         try {
-            $stamp = $db->table('fiscal_document_stamps')->where('fiscal_document_id', $id)->get(1)->getRow();
-            $document = $db->table('fiscal_documents')->where('id', $id)->get(1)->getRow();
-            $issuer = $db->table('fiscal_document_issuers')->where('fiscal_document_id', $id)->get(1)->getRow();
-            $receiver = $db->table('fiscal_document_receivers')->where('fiscal_document_id', $id)->get(1)->getRow();
-            if (!$stamp || !$document || !$issuer || !$receiver) {
-                throw new \RuntimeException('Faltan datos para consultar el estado.');
-            }
-            $factory = new FiscalPacAdapterFactory();
-            $adapter = $factory->create();
-            $response = $adapter->getStampStatus([
-                'environment' => $factory->environment(),
-                'uuid' => $stamp->uuid,
-                'rfcEmisor' => $issuer->rfc,
-                'rfcReceptor' => $receiver->rfc,
-                'total' => $document->total,
-            ]);
-            $this->audit($id, 'sat_status_queried', (string) $stamp->uuid);
-            echo json_encode([
-                'success' => !$response->transportError,
-                'data' => ['code' => $response->code, 'message' => $response->message],
-                'message' => $response->message,
-            ]);
+            $key=(string)$this->request->getPost('query_key');
+            $service=new \App\Services\Fiscal\SatStatus\FiscalSatStatusService(null,null,null,null,
+                static fn(int$documentId,int$userId,string$idempotencyKey):array=>(new \App\Services\Fiscal\Cancellation\FiscalCancellationService())->queryStatus($documentId,$userId,true,$idempotencyKey));
+            echo json_encode($service->query($id,(int)$this->login_user->id,true,$key),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
         } catch (Throwable $e) {
             log_message('warning', 'SAT status query blocked for document {document}: {type}', [
                 'document' => $id,

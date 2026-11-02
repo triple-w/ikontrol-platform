@@ -87,6 +87,11 @@ final class FiscalInvoiceGenerationService
 
             $this->stage = 'configuration';
             ($this->adapterFactory ?? new FiscalPacAdapterFactory())->create();
+            (new CfdiPaymentRuleService($this->db))->validateForInvoice(
+                $invoiceId,
+                (string)($document->payment_method_code ?? $input['payment_method_code'] ?? ''),
+                (string)($document->payment_form_code ?? $input['payment_form_code'] ?? '')
+            );
 
             if (!$document) {
                 $this->stage = 'readiness';

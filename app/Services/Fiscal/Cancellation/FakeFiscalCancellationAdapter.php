@@ -19,6 +19,7 @@ final class FakeFiscalCancellationAdapter implements FiscalCancellationAdapterIn
         return match ($this->scenario) {
             'accepted' => ['status'=>'accepted','code'=>'FAKE_ACCEPTED','message'=>'Cancelación fiscal simulada aceptada.','ack_base64'=>$ack,'request_sent'=>true],
             'pending' => ['status'=>'pending','code'=>'FAKE_PENDING','message'=>'Cancelación fiscal simulada pendiente.','ack_base64'=>null,'request_sent'=>true],
+            'pending_acceptance' => ['status'=>'pending_acceptance','code'=>'FAKE_PENDING_ACCEPTANCE','message'=>'Cancelación fiscal simulada pendiente de aceptación.','ack_base64'=>null,'request_sent'=>true],
             'rejected' => ['status'=>'rejected','code'=>'FAKE_REJECTED','message'=>'Cancelación fiscal simulada rechazada.','ack_base64'=>null,'request_sent'=>true],
             'timeout_unknown' => ['status'=>'unknown','code'=>null,'message'=>'Resultado de cancelación desconocido.','ack_base64'=>null,'request_sent'=>true],
             'transport_not_sent' => ['status'=>'transport_not_sent','code'=>null,'message'=>'La solicitud no salió del proceso local.','ack_base64'=>null,'request_sent'=>false],

@@ -24,7 +24,7 @@
                         <li role="presentation"><?php echo modal_anchor(get_uri($edit_url), "<i data-feather='edit' class='icon-16'></i> " . app_lang('edit_invoice'), array("title" => app_lang('edit_invoice'), "data-post-id" => $invoice_info->id, "role" => "menuitem", "tabindex" => "-1", "class" => "dropdown-item")); ?> </li>
 
                         <?php if ($invoice_status == "not_paid" || $invoice_status == "overdue" || $invoice_status == "partially_paid") { ?>
-                            <li role="presentation"><?php echo js_anchor("<i data-feather='x' class='icon-16'></i> " . app_lang('mark_invoice_as_cancelled'), array('title' => app_lang('mark_invoice_as_cancelled'), "data-action-url" => get_uri("invoices/update_invoice_status/" . $invoice_info->id . "/cancelled"), "data-action" => "delete-confirmation", "data-reload-on-success" => "1", "class" => "dropdown-item mark-as-cancelled-btn")); ?> </li>
+                            <li role="presentation"><?php echo modal_anchor(get_uri('invoices/cancel_sale_form'),"<i data-feather='x-circle' class='icon-16'></i> Cancelar venta",array('title'=>'Cancelar venta','data-post-id'=>$invoice_info->id,'class'=>'dropdown-item')); ?> </li>
                         <?php } ?>
 
                         <?php if ($invoice_status !== "draft" && $invoice_status !== "cancelled" && $invoice_info->status !== "credited") { ?>

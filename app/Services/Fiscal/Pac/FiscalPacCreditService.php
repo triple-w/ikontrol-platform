@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Services\Fiscal\Pac;
 
 use App\Services\Fiscal\FiscalRuntimeContext;
+use App\Services\Fiscal\FiscalIssuerResolver;
 use Config\Fiscal;
 use Config\TimbradorXpress;
 use RuntimeException;
@@ -28,8 +29,8 @@ final class FiscalPacCreditService
         $config = $this->configuration ?? config('TimbradorXpress');
         $context = FiscalRuntimeContext::assertPacOperational($this->fiscal ?? config('Fiscal'), $config);
         $environment = $context['fiscal_environment'];
-        $issuer = $this->db->table('fiscal_profiles')->where(['id' => $issuerProfileId, 'profile_type' => 'issuer'])->get(1)->getRow();
-        if (!$issuer) throw new RuntimeException('Emisor fiscal no encontrado.');
+        $issuer = (new FiscalIssuerResolver($this->db))->resolveById($issuerProfileId, null, $environment);
+        if (!$issuer) throw new RuntimeException('El emisor no pertenece al ambiente PAC activo.');
 
         $response = $this->client->post($config->baseUrl . 'consultarCreditosDisponibles', [
             'form_params' => ['apikey' => $config->apiKey],

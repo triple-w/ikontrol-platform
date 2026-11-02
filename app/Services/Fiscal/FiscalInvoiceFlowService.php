@@ -17,7 +17,7 @@ final class FiscalInvoiceFlowService
     {
         try{$snapshot=(new FiscalDraftSnapshotService($this->db))->getCompleteFiscalSnapshot($draftId);}catch(Throwable){return$this->blocked('La información fiscal debe actualizarse antes de facturar.');}
         $draft=$snapshot['draft'];$concepts=array_map(static fn(array$item):array=>['quantity'=>$item['quantity'],'total'=>$item['total'],'snapshot'=>$item['snapshot']],$snapshot['items']);
-        $validation=(new FiscalDraftValidationService($this->db))->validate($draft,$snapshot['allocations'],$concepts);$errors=$validation['errors'];
+        $validation=(new FiscalDraftValidationService($this->db))->validate($draft,$snapshot['allocations'],$concepts,true);$errors=$validation['errors'];
         foreach($snapshot['allocations']as$allocation){$sale=$this->db->table('invoices')->select('commercial_status,status,deleted')->where('id',(int)$allocation['sale_id'])->get(1)->getRow();$allowedStatus=$allowOpenSale?['draft','open','closed']:['closed'];if(!$sale||(int)$sale->deleted===1||!in_array((string)$sale->commercial_status,$allowedStatus,true)||$sale->status==='cancelled'){$errors[]=['field'=>'sale','section'=>'sales','code'=>'SALE_NOT_CLOSED','message'=>'La venta debe estar disponible para facturación.'];break;}}
         $documentId=(int)($draft['fiscal_document_id']??0);if($documentId&&$this->hasActiveAttempt($documentId))return$this->unknown($draftId,$documentId,'Estamos verificando el resultado de la factura. No vuelva a facturar este documento.');
         if($documentId&&$this->hasRejectedAttempt($documentId))$errors[]=['field'=>'document','section'=>'document','code'=>'PREPARED_DOCUMENT_REBUILD_REQUIRED','message'=>'La preparacion fiscal rechazada debe regenerarse antes de volver a intentar.'];
@@ -27,7 +27,9 @@ final class FiscalInvoiceFlowService
 
     public function execute(int $draftId, int $userId, bool $authorized): array
     {
-        return $this->executeInternal($draftId, $userId, $authorized, false);
+        // Draft issuance follows the same open-sale transition as the sale UI:
+        // validate/reserve first and close commercially only after confirmed stamp.
+        return $this->executeInternal($draftId, $userId, $authorized, true);
     }
 
     private function executeInternal(int $draftId, int $userId, bool $authorized, bool $saleFlow): array
@@ -44,7 +46,7 @@ final class FiscalInvoiceFlowService
     public function executeSale(int$saleId,array$input,int$userId,bool$authorized):array
     {
         if(!$authorized)return$this->blocked('No tiene permiso para generar facturas.')+['success'=>false,'category'=>'validation'];$lock='fiscal_invoice_sale_'.$saleId;$acquired=(int)($this->db->query('SELECT GET_LOCK(?, 0) acquired',[$lock])->getRow()->acquired??0);if($acquired!==1)return['success'=>false,'category'=>'validation','status'=>'processing','retry_allowed'=>false,'message'=>'La venta ya está siendo procesada.'];
-        $result=[];
+        $result=[];$draftId=null;
         try{$sale=$this->db->table('invoices')->where(['id'=>$saleId,'deleted'=>0])->get(1)->getRow();if(!$sale)return$this->blocked('La venta no existe.')+['success'=>false,'category'=>'validation'];(new CommercialSaleTotalConsistencyService($this->db))->synchronizeIfCanonical($saleId);$attempt=$this->attempts->find($saleId);$draftId=$attempt?(int)$attempt->id:null;
             if($attempt&&!empty($attempt->fiscal_document_id)){$documentId=(int)$attempt->fiscal_document_id;$stamp=$this->db->table('fiscal_document_stamps')->where('fiscal_document_id',$documentId)->get(1)->getRow();if($stamp&&trim((string)$stamp->uuid)!=='')return$this->existingStamped($saleId,(int)$attempt->id,$documentId,$stamp,$userId);if($this->hasActiveAttempt($documentId)||in_array((string)$attempt->status,['blocked','stamping'],true))return$this->unknown((int)$attempt->id,$documentId,'Estamos verificando el resultado de la factura. No vuelva a facturar este documento.')+['success'=>false,'sale_id'=>$saleId];}
             $input['sale_ids']=[$saleId];$input['ux_mode']='normal';$input['save_as_draft']=0;
@@ -57,7 +59,7 @@ final class FiscalInvoiceFlowService
                 $saleClosed=(bool)$transition['closed'];$result['payment_status']=$transition['payment_status'];$result['balance']=$transition['balance'];
             }
             return$result+['sale_id'=>$saleId,'sale_closed'=>$saleClosed];
-        }catch(Throwable$e){if(!empty($result['uuid'])){log_message('error','CFDI_POST_STAMP_SALE_CLOSE_FAILURE for sale {sale}: {type}',['sale'=>$saleId,'type'=>get_class($e)]);return$result+['success'=>true,'status'=>'stamped_local_reconciliation_pending','message'=>'Factura timbrada correctamente. Falta completar una actualizacion administrativa local.','sale_id'=>$saleId,'sale_closed'=>false];}return$this->blocked($this->safeError($e,'invoice_flow.execute_sale',null,$saleId))+['success'=>false,'category'=>'validation','keep_modal_open'=>true];}finally{$this->db->query('SELECT RELEASE_LOCK(?)',[$lock]);}
+        }catch(Throwable$e){if(!empty($result['uuid'])){log_message('error','CFDI_POST_STAMP_SALE_CLOSE_FAILURE for sale {sale}: {type}',['sale'=>$saleId,'type'=>get_class($e)]);return$result+['success'=>true,'status'=>'stamped_local_reconciliation_pending','message'=>'Factura timbrada correctamente. Falta completar una actualizacion administrativa local.','sale_id'=>$saleId,'sale_closed'=>false];}return$this->blocked($this->safeError($e,'invoice_flow.execute_sale',$draftId,$saleId))+['success'=>false,'category'=>'validation','keep_modal_open'=>true];}finally{$this->db->query('SELECT RELEASE_LOCK(?)',[$lock]);}
     }
 
     private function withXmlInspection(array $result, int $draftId, ?int $documentId = null): array

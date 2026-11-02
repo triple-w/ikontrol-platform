@@ -41,8 +41,10 @@ final class FiscalStampWalletResolver
         $profiles = $this->db->table('fiscal_profiles')
             ->select('id,environment')
             ->where('profile_type', 'issuer')
-            ->where('deleted', 0)
             ->where('UPPER(TRIM(rfc)) = ' . $this->db->escape($rfc), null, false);
+        if ($this->db->fieldExists('deleted', 'fiscal_profiles')) {
+            $profiles->where('deleted', 0);
+        }
         if ($this->db->fieldExists('company_id', 'fiscal_profiles')) {
             $companyId = $issuer->company_id ?? null;
             if ($companyId !== null) {
@@ -81,7 +83,10 @@ final class FiscalStampWalletResolver
 
     private function issuer(int $issuerId): ?object
     {
-        $fields = ['id', 'rfc', 'environment', 'deleted'];
+        $fields = ['id', 'rfc', 'environment'];
+        if ($this->db->fieldExists('deleted', 'fiscal_profiles')) {
+            $fields[] = 'deleted';
+        }
         if ($this->db->fieldExists('company_id', 'fiscal_profiles')) {
             $fields[] = 'company_id';
         }

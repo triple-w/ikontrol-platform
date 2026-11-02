@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+if(!extension_loaded('sqlite3')){fwrite(STDERR,"BLOCKED: sqlite3 extension is required.\n");exit(2);}
+
 require dirname(__DIR__) . '/bootstrap.php';
 
 use App\Services\Fiscal\SatCatalogImporterService;

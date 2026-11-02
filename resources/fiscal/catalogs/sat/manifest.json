@@ -1,5 +1,127 @@
 {
-  "schema_version": 1,
-  "generated_at": null,
-  "catalogs": []
+    "schema_version": 1,
+    "generated_at": "2026-10-15T00:00:00-06:00",
+    "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+    "catalogs": [
+        {
+            "catalog_name": "product-service",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "product_service.csv",
+            "checksum": "sha256:f44a149ca8ffc2b7097d23ffb77d2851f9c4936cf53022965e28ab18fdeea282",
+            "row_count": 52513,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "units",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "unit_keys.csv",
+            "checksum": "sha256:752fad7438d18fc962ca5482d769567b559374fb98234089b445e7c4d02c0808",
+            "row_count": 2418,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "tax-codes",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "tax_codes.csv",
+            "checksum": "sha256:5596aa5cff16e03621c028c70ad57bc1b12ce2cf7b90aad4e0bc68e15b4dead6",
+            "row_count": 3,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "tax-factor-types",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "tax_factor_types.csv",
+            "checksum": "sha256:86888c4bfc3bb0aec1102fda599631f786799aa66d67ba51def9ed48681ec13f",
+            "row_count": 3,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "cfdi-uses",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "cfdi_uses.csv",
+            "checksum": "sha256:569b61d9492bef498762b745fd23759b56284c3c2995b97fa577e8d049c04127",
+            "row_count": 24,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "tax-regimes",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "tax_regimes.csv",
+            "checksum": "sha256:6ce3d801b35f54502a9277654608bec43c1580c0d9cc837f913982e6d818161e",
+            "row_count": 19,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "tax-object-codes",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "tax_object_codes.csv",
+            "checksum": "sha256:3d417f37241b3b2f3d77657a2ee440175586f3c9ab5b3bd2222afcb2ca82bb9d",
+            "row_count": 8,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "payment-forms",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "payment_forms.csv",
+            "checksum": "sha256:dac3b59122543785207782754c5205c48ce4ebc702913336fdfcad2957107cb0",
+            "row_count": 22,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "payment-methods",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "payment_methods.csv",
+            "checksum": "sha256:cdcf3dcebc19053da9a94635d5f52693fbd5e5772c3b32866ac2e3543d417291",
+            "row_count": 2,
+            "complete_authoritative": true
+        },
+        {
+            "catalog_name": "currencies",
+            "source": "Servicio de Administración Tributaria (SAT), catálogos CFDI 4.0",
+            "source_url": "http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261015.xls",
+            "source_workbook_sha256": "fde78b456d1e0d90366bfc68f8312f9edce5703ad5dc8ccebf09c462db13a079",
+            "source_version": "catCFDI_V_4_20261015",
+            "generated_at": "2026-10-15T00:00:00-06:00",
+            "file": "currencies.csv",
+            "checksum": "sha256:6277eaf89d528a2a4790a0fcb23958705e27d24a8ac29f9b43cf58bd1788ed43",
+            "row_count": 183,
+            "complete_authoritative": true
+        }
+    ]
 }

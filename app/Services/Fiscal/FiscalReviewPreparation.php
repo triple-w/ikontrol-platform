@@ -32,7 +32,7 @@ final class FiscalReviewPreparation
             'payment_method_code'=>(string)($input['payment_method_code']??''),
             'payment_form_code'=>(string)($input['payment_form_code']??''),
             'cfdi_use_code'=>(string)($input['cfdi_use_code']??''),
-            'environment'=>config('Fiscal')->environment, 'snapshot_version'=>2,
+            'environment'=>FiscalRuntimeContext::fiscalEnvironment(config('Fiscal')), 'snapshot_version'=>2,
             'requires_snapshot_refresh'=>0, 'snapshot_completed_at'=>get_current_utc_time(),
         ];
 

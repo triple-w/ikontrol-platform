@@ -29,7 +29,7 @@ class Payment_methods extends Security_Controller {
         $view_data['sat_payment_form_code'] = "";
         $db = db_connect();
         if ($db->tableExists("sat_payment_forms")) {
-            foreach ($db->table("sat_payment_forms")->where("is_active", 1)->orderBy("code")->get()->getResult() as $form) {
+            foreach ($db->table("sat_payment_forms")->where("is_active", 1)->where("code !=", "99")->orderBy("code")->get()->getResult() as $form) {
                 $view_data['sat_payment_forms'][$form->code] = $form->code . " · " . $form->name;
             }
         }
@@ -89,14 +89,30 @@ class Payment_methods extends Security_Controller {
 
         $data["settings"] = serialize($settings_data);
 
+        $db = db_connect();
+        $form_code = trim((string) $this->request->getPost("sat_payment_form_code"));
+        $mappings = [];
+        if ($db->tableExists("fiscal_payment_method_mappings")) {
+            $mappings = $db->table("fiscal_payment_method_mappings")->where("payment_method_id", (int) $id)->get()->getResult();
+            if (count($mappings) > 1) {
+                echo json_encode(array("success" => false, "message" => "Existen mappings duplicados; se requiere revisión dirigida antes de guardar."));
+                return;
+            }
+            if ($form_code === "99") {
+                echo json_encode(array("success" => false, "message" => "La forma SAT 99 - Por definir no puede mapearse a un pago administrativo."));
+                return;
+            }
+            if ($form_code !== "" && $db->table("sat_payment_forms")->where(array("code" => $form_code, "is_active" => 1))->countAllResults() !== 1) {
+                echo json_encode(array("success" => false, "message" => "Selecciona una forma SAT activa."));
+                return;
+            }
+        }
 
         $save_id = $this->Payment_methods_model->ci_save($data, $id);
         if ($save_id) {
-            $db = db_connect();
             if ($db->tableExists("fiscal_payment_method_mappings")) {
-                $form_code = trim((string) $this->request->getPost("sat_payment_form_code"));
-                $existing_mapping = $db->table("fiscal_payment_method_mappings")->where("payment_method_id", $save_id)->get(1)->getRow();
-                if ($form_code !== "" && $db->table("sat_payment_forms")->where(array("code" => $form_code, "is_active" => 1))->countAllResults() === 1) {
+                $existing_mapping = $mappings[0] ?? null;
+                if ($form_code !== "") {
                     $mapping_data = array("payment_method_id" => $save_id, "sat_payment_form_code" => $form_code, "is_active" => 1, "updated_at" => get_current_utc_time());
                     if ($existing_mapping) {
                         $db->table("fiscal_payment_method_mappings")->where("id", $existing_mapping->id)->update($mapping_data);

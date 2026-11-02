@@ -19,6 +19,14 @@ El servicio de cobro coordina registro, movimiento y aplicación opcional dentro
 
 Disponibilidad de un cobro y saldo pendiente de una venta se calculan a partir de aplicaciones vigentes. No alteres uno sin considerar reversas, duplicados y consistencia del otro. Mantén la misma conexión transaccional entre servicios.
 
+## Cuándo se exige un mapping fiscal
+
+El método CFDI (`PUE`/`PPD`), la FormaPago SAT y el método administrativo son datos distintos. La cobertura de mappings de métodos administrativos es informativa en onboarding; un método sin mapping no bloquea ventas ni borradores ni una factura PPD/99 cuando ese pago no participa.
+
+Para emitir una factura PUE se valida la FormaPago activa y los pagos administrativos efectivos asociados; todos deben cubrir el importe fiscal y corresponder a mappings activos, únicos y compatibles con la forma seleccionada. Para emitir un complemento se valida cada pago incorporado con esa misma regla de mapping y consistencia. La forma 99 sólo representa un pago por definir y no puede mapearse como pago administrativo recibido.
+
+Los pagos nuevos sólo pueden usar métodos administrativos habilitados. No se cambia el método de un pago con aplicaciones activas; no se reescriben pagos ni comprobantes históricos para completar mappings.
+
 ## Alcance y antecedentes
 
 El complemento parte del pago administrativo y tiene un ciclo fiscal propio; su emisión o cancelación requiere revisar ambos dominios, sin asumir que cancelar CFDI revierte automáticamente el dinero. El soporte Navika para documentos externos/mixtos sigue pendiente; consulta el [registro de ejecución](reconciliation/BASE_V1_RECONCILIATION_EXECUTION.md).

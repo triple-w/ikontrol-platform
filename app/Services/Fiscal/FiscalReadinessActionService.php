@@ -42,7 +42,7 @@ final class FiscalReadinessActionService
             $this->row('pac', 'PAC', ($details['pac']['status'] ?? '') === 'READY', 'Revisa adaptador, ambiente y credenciales locales.', 'Configurar PAC', 'fiscal/pac/status'),
             $this->row('products', 'Productos', (int) ($products['incomplete'] ?? 0) === 0, (int) ($products['incomplete'] ?? 0) . ' producto(s) pendientes.', 'Configurar productos', 'items'),
             $this->row('clients', 'Clientes', (int) ($clients['incomplete'] ?? 0) === 0, (int) ($clients['incomplete'] ?? 0) . ' cliente(s) pendientes.', 'Configurar clientes', 'clients'),
-            $this->row('payment_methods', 'Métodos de pago', (int) ($payments['available'] ?? 0) > 0 && (int) ($payments['mapped'] ?? 0) >= (int) ($payments['available'] ?? 0), (int) ($payments['mapped'] ?? 0) . ' / ' . (int) ($payments['available'] ?? 0) . ' mapeados.', 'Configurar métodos de pago', 'payment_methods'),
+            ['key'=>'payment_methods','label'=>'Mappings de cobro administrativo','status'=>empty($payments['issues'])?'OK':'ADVERTENCIA','detail'=>(int)($payments['mapped']??0).' / '.(int)($payments['configured']??$payments['available']??0).' métodos administrativos mapeados; se validan sólo cuando participan en PUE o complementos.','action'=>empty($payments['issues'])?null:['label'=>'Configurar mappings fiscales','path'=>'fiscal/payment-methods']],
             $this->row('stamping', 'Timbrado', ($details['stamping']['status'] ?? '') === 'READY', 'Permanece bloqueado hasta completar todos los requisitos.'),
         ];
     }
@@ -71,7 +71,7 @@ final class FiscalReadinessActionService
         }
 
         foreach ($this->onboardingChecklist($onboarding) as $row) {
-            if ($row['status'] === 'OK' || ! in_array($row['key'], ['csd', 'pac', 'payment_methods', 'catalogs'], true)) continue;
+            if ($row['status'] === 'OK' || ! in_array($row['key'], ['csd', 'pac', 'catalogs'], true)) continue;
             if ($row['key'] === 'csd' && $issuerId < 1) continue;
             $groups[$row['key']] = ['label' => $row['label'], 'items' => [[
                 'message' => $row['detail'],
@@ -109,7 +109,7 @@ final class FiscalReadinessActionService
             ];
         }
         foreach ($this->onboardingChecklist($onboarding) as $row) {
-            if ($row['status'] === 'OK' || ! in_array($row['key'], ['csd', 'pac', 'payment_methods', 'catalogs', 'series'], true)) continue;
+            if ($row['status'] === 'OK' || ! in_array($row['key'], ['csd', 'pac', 'catalogs', 'series'], true)) continue;
             if ($row['key'] === 'csd' && $issuerId < 1) continue;
             $groups[$row['key']] = ['label' => $row['label'], 'items' => [[
                 'message' => $row['detail'],

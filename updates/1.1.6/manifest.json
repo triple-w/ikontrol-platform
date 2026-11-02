@@ -1,0 +1,15 @@
+{
+    "schema_version": 1,
+    "product": "ikontrol",
+    "version": "1.1.6",
+    "channel": "stable",
+    "from_versions": ["1.1.5"],
+    "migrations": [
+        {"id": "2026-10-22-120000_CreateFiscalEnvironmentChangeRequests", "required": true},
+        {"id": "2026-10-22-130000_CreateFiscalSatStatusQueries", "required": true},
+        {"id": "2026-10-22-140000_AddFiscalGlobalInformation", "required": true}
+    ],
+    "commands": [],
+    "health_checks": ["ikontrol:database-check", "ikontrol:baseline-check", "ikontrol:fiscal-116-readiness"],
+    "requires_backup": true
+}

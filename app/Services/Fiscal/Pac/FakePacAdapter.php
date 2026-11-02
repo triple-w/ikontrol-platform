@@ -144,6 +144,10 @@ final class FakePacAdapter implements PacAdapterInterface
         }
         $complement->appendChild($tfd);
         $root->appendChild($complement);
+        $dom->insertBefore(
+            $dom->createComment(' iKontrol PAC FAKE - SIMULACION; NO ES RESPUESTA SAT/PAC REAL; SIN VALIDEZ FISCAL '),
+            $root
+        );
 
         return [(string) $dom->saveXML(), $uuid, $stampDate];
     }

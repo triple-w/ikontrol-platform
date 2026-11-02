@@ -56,7 +56,11 @@ class ItemSettings extends Security_Controller
             $taxObject=$this->resolveTaxObject($existing??(object)[],$taxIds);
             if(!$taxObject||!$taxObject->id)throw new RuntimeException(app_lang('error_occurred'));
             $inactive=$existing&&($existing->status??'')==='inactive';
-            $data=['item_id'=>$itemId,'item_type'=>$itemType,'sat_product_service_key_id'=>$productKeyId,'sat_unit_key_id'=>$unitKeyId,'tax_object_code_id'=>$taxObject->id,'is_default'=>1,'status'=>$inactive?'inactive':'incomplete','updated_at'=>get_current_utc_time(),'deleted'=>0];
+            $descriptionInput=$this->request->getPost('fiscal_description');
+            $unitInput=$this->request->getPost('commercial_unit');
+            $fiscalDescription=$descriptionInput===null?trim((string)($existing->fiscal_description??$item->description??$item->title??'')):trim((string)$descriptionInput);
+            $commercialUnit=$unitInput===null?trim((string)($existing->commercial_unit??$item->unit_type??'')):trim((string)$unitInput);
+            $data=['item_id'=>$itemId,'item_type'=>$itemType,'sat_product_service_key_id'=>$productKeyId,'sat_unit_key_id'=>$unitKeyId,'commercial_unit'=>$commercialUnit?:null,'tax_object_code_id'=>$taxObject->id,'fiscal_description'=>$fiscalDescription?:null,'is_default'=>1,'status'=>$inactive?'inactive':'incomplete','updated_at'=>get_current_utc_time(),'deleted'=>0];
             if(!$id){$data['created_by']=$this->login_user->id;$data['created_at']=get_current_utc_time();}
             $db->transBegin();$saved=$settings->ci_save($data,$id);if(!$saved)throw new RuntimeException(app_lang('error_occurred'));
             $settings->setDefault($itemId,(int)$saved);(new Item_fiscal_taxes_model())->replaceForSetting((int)$saved,$taxIds);

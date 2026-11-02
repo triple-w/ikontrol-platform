@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Services\Fiscal\FiscalDecimal;
 use App\Services\Fiscal\FiscalIssueDatePolicy;
+use App\Services\Fiscal\FiscalPaymentMethodReadinessService;
 
 final class PaymentComplementReadinessService
 {
@@ -22,17 +23,29 @@ final class PaymentComplementReadinessService
         $validDate=false;$dateError='Fecha fiscal invalida.';if($complement)try{(new FiscalIssueDatePolicy())->validate((string)$complement->issue_date);$validDate=true;}catch(\Throwable$e){$dateError=$e->getMessage();}
         $add('general','Fecha del complemento',$validDate,$validDate?'Fecha fiscal dentro de la ventana permitida.':$dateError,'Ajuste la fecha del complemento.');
 
-        $payment=$this->db->table('payment_complement_payments p')->select('p.*,ip.status source_status,ip.deleted source_deleted,ip.amount source_amount,ip.payment_method_id,fm.sat_payment_form_code mapped_payment_form')
-            ->join('invoice_payments ip','ip.id=p.source_invoice_payment_id','left')->join('fiscal_payment_method_mappings fm','fm.payment_method_id=ip.payment_method_id AND fm.is_active=1','left')
-            ->where(['p.payment_complement_id'=>$id,'p.deleted'=>0])->get(1)->getRow();
-        $form=$payment?($payment->payment_form_code?:$payment->mapped_payment_form):null;
-        $catalog=$form?$this->db->table('sat_payment_forms')->where(['code'=>$form,'is_active'=>1])->get(1)->getRow():null;
-        $add('general','Pago administrativo',(bool)($payment&&$payment->source_invoice_payment_id&&$payment->source_status==='active'&&!(int)$payment->source_deleted),$payment?'Pago #'.$payment->source_invoice_payment_id:'No existe pago origen.','Seleccione un pago administrativo activo.');
-        $add('general','FormaDePagoP',(bool)$catalog,$catalog?$form.' activo':'FormaDePagoP inexistente o inactiva.','Seleccione una clave SAT activa.');
-        if($payment)$add('general','Monto del pago',FiscalDecimal::micros((string)$payment->amount)>0&&FiscalDecimal::micros((string)$payment->amount)<=FiscalDecimal::micros((string)$payment->source_amount),'Monto fiscal '.$payment->amount,'Los documentos no pueden exceder el pago administrativo.');
-
-        $documents=[];
-        if($payment)try{$documents=(new PaymentComplementRelatedDocumentNormalizer($this->db))->forPayment($id,(int)$payment->id);}catch(\Throwable$e){$blockers[]=$e->getMessage();$checks[]=['section'=>'documents','label'=>'Normalizacion','severity'=>'error','detail'=>$e->getMessage(),'resolution'=>'Revise documentos e impuestos DR.'];}
+        $payments=$this->db->table('payment_complement_payments p')->select('p.*,ip.status source_status,ip.deleted source_deleted,ip.amount source_amount,ip.payment_method_id')
+            ->join('invoice_payments ip','ip.id=p.source_invoice_payment_id','left')
+            ->where(['p.payment_complement_id'=>$id,'p.deleted'=>0])->orderBy('p.id')->get()->getResult();
+        $documents=[];$normalizer=new PaymentComplementRelatedDocumentNormalizer($this->db);
+        if(!$payments){
+            $add('general','Pago administrativo',false,'No existe pago origen.','Seleccione un pago administrativo activo.');
+            $add('general','Mapping del pago',false,'No existe pago origen.','Configure una sola forma SAT activa para el método administrativo utilizado.');
+            $add('general','FormaDePagoP',false,'FormaDePagoP inexistente o inactiva.','Seleccione una clave SAT activa.');
+        }
+        foreach($payments as$payment){
+            $label=' del pago #'.(int)$payment->source_invoice_payment_id;
+            $active=(bool)($payment->source_invoice_payment_id&&$payment->source_status==='active'&&!(int)$payment->source_deleted);
+            $add('general','Pago administrativo'.$label,$active,$active?'Pago administrativo activo.':'El pago origen no existe o está inactivo.','Seleccione un pago administrativo activo.');
+            $mapping=$payment->payment_method_id?(new FiscalPaymentMethodReadinessService($this->db))->forMethod((int)$payment->payment_method_id):null;
+            $add('general','Mapping'.$label,(bool)($mapping&&$mapping['ready']),$mapping?(string)$mapping['message']:'No existe método administrativo para el pago.','Configure una sola forma SAT activa y compatible para el método utilizado.');
+            if($mapping&&$mapping['ready']&&$payment->payment_form_code)$add('general','Consistencia FormaDePagoP'.$label,(string)$payment->payment_form_code===(string)$mapping['sat_payment_form_code'],'La forma guardada debe coincidir con el mapping del pago efectivo.','Seleccione la forma SAT correspondiente al método administrativo utilizado.');
+            $form=$payment->payment_form_code?:($mapping['sat_payment_form_code']??null);
+            $catalog=$form?$this->db->table('sat_payment_forms')->where(['code'=>$form,'is_active'=>1])->get(1)->getRow():null;
+            $add('general','FormaDePagoP'.$label,(bool)$catalog&&$form!=='99',$catalog&&$form!=='99'?$form.' activo':'FormaDePagoP inexistente, inactiva o incompatible con un pago recibido.','Seleccione una clave SAT activa y válida para el pago recibido.');
+            $amountOk=FiscalDecimal::micros((string)$payment->amount)>0&&FiscalDecimal::micros((string)$payment->amount)<=FiscalDecimal::micros((string)($payment->source_amount??'0'));
+            $add('general','Monto del pago'.$label,$amountOk,'Monto fiscal '.$payment->amount,'Los documentos no pueden exceder el pago administrativo.');
+            try{$documents=array_merge($documents,$normalizer->forPayment($id,(int)$payment->id));}catch(\Throwable$e){$blockers[]=$e->getMessage();$checks[]=['section'=>'documents','label'=>'Normalizacion'.$label,'severity'=>'error','detail'=>$e->getMessage(),'resolution'=>'Revise documentos e impuestos DR.'];}
+        }
         $internal=count(array_filter($documents,static fn(array$d):bool=>$d['source_type']==='internal'));
         $external=count($documents)-$internal;
         $add('documents','Documentos relacionados',(bool)$documents,$documents?count($documents).' CFDI: '.$internal.' interno(s), '.$external.' externo(s).':'No hay facturas agregadas.','Agregue al menos un CFDI interno o externo.');

@@ -56,6 +56,12 @@ final class ReleaseArtifactBuilder
         $this->assertReleaseTag($spec['release_tag'], $commit);
 
         $targetTree = $this->tree($commit);
+        foreach ($logical['migrations'] as $migration) {
+            $migrationPath = 'app/Database/Migrations/' . $migration['id'] . '.php';
+            if (!isset($targetTree[$migrationPath]) || $targetTree[$migrationPath]['mode'] === '120000') {
+                throw new RuntimeException('RELEASE_REQUIRED_MIGRATION_MISSING:' . $migration['id']);
+            }
+        }
         $sourceTrees = [];
         foreach ($logical['from_versions'] as $sourceVersion) {
             $sourceRef = $spec['source_refs'][$sourceVersion] ?? null;

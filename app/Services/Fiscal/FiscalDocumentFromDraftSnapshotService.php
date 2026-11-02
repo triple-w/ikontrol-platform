@@ -29,8 +29,8 @@ final class FiscalDocumentFromDraftSnapshotService
             $draft = $snapshot['draft'];
             $seriesTable = $this->db->prefixTable('fiscal_series');
             $series = $this->db->query(
-                "SELECT * FROM {$seriesTable} WHERE id=? AND issuer_profile_id=? AND is_active=1 AND deleted=0 FOR UPDATE",
-                [(int)$draft['fiscal_series_id'], (int)$draft['issuer_id']]
+                "SELECT * FROM {$seriesTable} WHERE id=? AND issuer_profile_id=? AND environment=? AND is_active=1 AND deleted=0 FOR UPDATE",
+                [(int)$draft['fiscal_series_id'], (int)$draft['issuer_id'], (string)$draft['environment']]
             )->getRowArray();
             if (!$series) throw new RuntimeException('La serie fiscal del snapshot ya no está disponible.');
             $folio = max((int)$series['initial_folio'], (int)$series['current_folio'] + 1);
@@ -40,7 +40,7 @@ final class FiscalDocumentFromDraftSnapshotService
             $currencyTotals=$this->currencyTotals($snapshot);
             $document = [
                 'invoice_id' => $firstSale, 'source_draft_id' => $draftId,
-                'environment'=>(string)($draft['environment']??config('Fiscal')->environment),
+                'environment'=>(string)($draft['environment']??FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'))),
                 'data_origin'=>(string)($draft['data_origin']??'operational'),'is_test_fixture'=>0,
                 'issuer_profile_id' => (int)$draft['issuer_id'],
                 'receiver_profile_id' => (int)$draft['receiver_profile_id'],
@@ -54,6 +54,8 @@ final class FiscalDocumentFromDraftSnapshotService
                 'payment_form_code' => (string)$draft['payment_form_code'],
                 'payment_method_code' => (string)$draft['payment_method_code'],
                 'cfdi_use_code' => (string)$draft['cfdi_use_code'], 'export_code' => '01',
+                 'global_periodicity'=>$draft['global_periodicity']?:null,
+                 'global_months'=>$draft['global_months']?:null,'global_year'=>$draft['global_year']?:null,
                 'subtotal'=>$currencyTotals['subtotal'],'discount'=>$currencyTotals['discount'],
                 'transferred_tax_total'=>$currencyTotals['transferred'],
                 'withheld_tax_total'=>$currencyTotals['withheld'],'total'=>$currencyTotals['total'],

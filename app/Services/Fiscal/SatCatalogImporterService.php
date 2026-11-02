@@ -70,7 +70,7 @@ final class SatCatalogImporterService
                 $data = $map['data']($input) + ['is_active' => 1];
                 $existing = $this->db->table($map['table'])->where('code', $code)->get(1)->getRowArray();
                 if ($existing === null) { $stats['inserted']++; if (! $dryRun) $this->db->table($map['table'])->insert($data + ['code'=>$code,'is_active'=>1,'created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s')]); continue; }
-                $changed = false; foreach ($data as $key => $value) if ((string) ($existing[$key] ?? '') !== (string) ($value ?? '')) { $changed=true; break; }
+                $changed = false; foreach ($data as $key => $value) if (! $this->equivalent($existing[$key] ?? null, $value)) { $changed=true; $stats['changed_fields'][$key]=($stats['changed_fields'][$key]??0)+1; }
                 if ($changed) { $stats['updated']++; if (! $dryRun) $this->db->table($map['table'])->where('id',$existing['id'])->update($data + ['updated_at'=>date('Y-m-d H:i:s')]); } else $stats['unchanged']++;
             }
             fclose($handle);
@@ -88,6 +88,13 @@ final class SatCatalogImporterService
         $row = ['catalog_name'=>$name,'source'=>(string)$entry['source'],'source_version'=>(string)$entry['source_version'],'source_checksum'=>strtolower(str_replace('sha256:','',(string)$entry['checksum'])),'source_generated_at'=>$generatedAt,'installed_at'=>date('Y-m-d H:i:s'),'row_count'=>$this->db->table($table)->countAllResults(),'active_row_count'=>$this->db->table($table)->where('is_active',1)->countAllResults(),'metadata_json'=>json_encode(['manifest_schema_version'=>self::SCHEMA_VERSION]),'updated_at'=>date('Y-m-d H:i:s')];
         $old=$this->db->table('sat_catalog_installations')->where('catalog_name',$name)->get(1)->getRowArray();
         $old ? $this->db->table('sat_catalog_installations')->where('id',$old['id'])->update($row) : $this->db->table('sat_catalog_installations')->insert($row+['created_at'=>date('Y-m-d H:i:s')]);
+    }
+
+    private function equivalent(mixed $stored, mixed $source): bool
+    {
+        if (($stored === null || $stored === '') && ($source === null || $source === '')) return true;
+        $normalize = static fn(mixed $value): string => trim(str_replace(["\r\n", "\r"], "\n", (string) $value));
+        return $normalize($stored) === $normalize($source);
     }
 
     private function safeFile(string $file): string { $path=$this->root.DIRECTORY_SEPARATOR.$file; if ($file==='' || str_contains($file,'..') || !is_file($path)) throw new RuntimeException('Manifest catalog file is missing.'); return $path; }

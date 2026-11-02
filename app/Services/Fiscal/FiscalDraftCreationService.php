@@ -38,7 +38,7 @@ class FiscalDraftCreationService
   try{
    $lockedInvoice=$this->db->query('SELECT * FROM '.$this->db->prefixTable('invoices').' WHERE id=? AND deleted=0 FOR UPDATE',[$invoiceId])->getRow();
    if(!$lockedInvoice||$this->d->money((string)$lockedInvoice->invoice_total)!==$this->d->money((string)$invoice->invoice_total)||$this->paymentTotal($invoiceId)!==$paymentTotal)throw new RuntimeException('La venta cambió durante la creación del borrador.');
-   $series=$this->db->query('SELECT * FROM '.$this->db->prefixTable('fiscal_series').' WHERE id=? AND issuer_profile_id=? AND document_type=? AND is_active=1 AND deleted=0 FOR UPDATE',[$seriesId,$issuerId,'ingreso'])->getRow();
+   $series=$this->db->query('SELECT * FROM '.$this->db->prefixTable('fiscal_series').' WHERE id=? AND issuer_profile_id=? AND document_type=? AND environment=? AND is_active=1 AND deleted=0 FOR UPDATE',[$seriesId,$issuerId,'ingreso',FiscalRuntimeContext::fiscalEnvironment(config('Fiscal'))])->getRow();
    if(!$series)throw new RuntimeException('La serie fiscal no está activa.');
    $folio=max((int)$series->initial_folio,(int)$series->current_folio+1);
    $version=1+(int)($this->db->table('fiscal_documents')->selectMax('version')->where('invoice_id',$invoiceId)->get()->getRow()->version??0);

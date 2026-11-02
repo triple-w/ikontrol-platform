@@ -1,0 +1,21 @@
+{
+    "schema_version": 1,
+    "package_id": "ikontrol-fiscal-116-instance-compatibility",
+    "target_version": "1.1.6",
+    "source_commit": "3c4a65d00d833743378ce526da7e5891da7509f9",
+    "entrypoint": "inspect.php",
+    "files": {
+        "inspect.php": {
+            "sha256": "68c41dd6502210fb1fbe6444d1046089e9e97e534fdd8bad73bc94d563eae21c",
+            "hash_mode": "text-lf-sha256"
+        },
+        "InstanceCompatibilityInspector.php": {
+            "sha256": "24d2ce4a3af63fcdeb154d94fd197206da5ad36b8b479d91caae60be4a23b3c1",
+            "hash_mode": "text-lf-sha256"
+        },
+        "contract-1.1.6.json": {
+            "sha256": "cfb378ab13de4a1621f0171fd656edbadc645f9c67914b43ca8f95ed89e18af7",
+            "hash_mode": "text-lf-sha256"
+        }
+    }
+}
