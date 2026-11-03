@@ -34,6 +34,10 @@ if (is_dir($dir)) {
 $routes->post('collect_leads/save', 'Collect_leads::save', ['filter' => 'cors']);
 $routes->options('collect_leads/save', 'Collect_leads::save', ['filter' => 'cors']);
 $routes->post('invoices/close_sale/(:num)', 'Invoices::close_sale/$1', ['filter' => 'csrf']);
+$routes->get('sales_item_report', 'Sales_item_report::index');
+$routes->post('sales_item_report/list_data', 'Sales_item_report::list_data', ['filter' => 'csrf']);
+$routes->get('sales_item_report/export_csv', 'Sales_item_report::export_csv');
+$routes->get('sales_item_report/export_excel', 'Sales_item_report::export_excel');
 
 // Canonical administrative payments must precede the legacy controller catch-all routes.
 $routes->post('invoice_payments/allocate_payment', 'Invoice_payments::allocate_payment', ['filter' => 'csrf']);

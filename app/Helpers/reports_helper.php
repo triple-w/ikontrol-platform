@@ -35,6 +35,7 @@ if (!function_exists('get_reports_topbar')) {
         if (get_setting("module_invoice") == "1" && ($ci->login_user->is_admin || $access_invoice)) {
             $sales_dropdown_button["invoices_summary"] = array("name" => "invoices_summary", "url" => "invoices/invoices_summary");
             $sales_dropdown_button["invoice_details"] = array("name" => "invoice_details", "url" => "invoices/invoice_details");
+            $sales_dropdown_button["sales_item_detail_report"] = array("name" => "sales_item_detail_report", "url" => "sales_item_report");
             $show_payments_button = true;
         }
 
