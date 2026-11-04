@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Services\Fiscal;
 
 use App\Services\Fiscal\Signing\CsdCertificateSecretService;
+use App\Services\Fiscal\Signing\CsdEncryptionConfigurationService;
 use RuntimeException;
 use Throwable;
 
@@ -17,7 +18,8 @@ final class CsdCertificateService
     public function __construct(
         $db = null,
         ?string $root = null,
-        private readonly ?CsdCertificateSecretService $secretService = null
+        private readonly ?CsdCertificateSecretService $secretService = null,
+        private readonly ?CsdEncryptionConfigurationService $encryptionConfiguration = null
     )
     {
         $this->db = $db ?: db_connect();
@@ -38,6 +40,9 @@ final class CsdCertificateService
         if (!$authorized) {
             throw new RuntimeException('No tiene permiso para administrar certificados.');
         }
+        // Fail before reading/parsing or persisting private material. Never rotate a
+        // missing/invalid installation key implicitly.
+        ($this->encryptionConfiguration ?? new CsdEncryptionConfigurationService($this->db))->assertReady();
         $this->assertUpload($certificateBytes, $certificateName, ['cer', 'pem'], self::MAX_CERTIFICATE_BYTES, 'certificado');
         $this->assertUpload($privateKeyBytes, $privateKeyName, ['key', 'pem'], self::MAX_PRIVATE_KEY_BYTES, 'llave privada');
         if ($password === '') {

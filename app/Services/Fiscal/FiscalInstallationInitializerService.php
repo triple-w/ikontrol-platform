@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Fiscal;
 
+use App\Services\Projects\ProjectStatusInitializerService;
 use CodeIgniter\Database\BaseConnection;
 use RuntimeException;
 
@@ -19,6 +20,7 @@ final class FiscalInstallationInitializerService
         if (! $infrastructure['ready']) throw new RuntimeException('Fiscal catalog schema is incomplete; use the directed schema upgrade first.');
         $catalogs = (new SatCatalogImporterService($this->db, $this->catalogRoot))->update(null, $dryRun, false);
         $defaults = $this->defaults($dryRun);
+        $defaults['project_statuses'] = (new ProjectStatusInitializerService($this->db))->initialize($dryRun);
         return ['database'=>$expectedDatabase,'dry_run'=>$dryRun,'catalogs'=>$catalogs['catalogs'],'defaults'=>$defaults];
     }
 

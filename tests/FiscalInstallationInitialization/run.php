@@ -6,6 +6,7 @@ if(!extension_loaded('sqlite3')){fwrite(STDERR,"BLOCKED: sqlite3 extension is re
 require dirname(__DIR__) . '/bootstrap.php';
 
 use App\Services\Fiscal\FiscalInstallationInitializerService;
+use App\Services\Projects\ProjectStatusInitializerService;
 use CodeIgniter\Database\Config as DbConfig;
 
 $assertions=0;$assert=static function(bool$ok,string$msg)use(&$assertions):void{if(!$ok)throw new RuntimeException('FAIL '.$msg);$assertions++;echo "PASS {$msg}\n";};
@@ -35,14 +36,20 @@ $db->query('CREATE TABLE sat_catalog_installations (id INTEGER PRIMARY KEY AUTOI
 $db->query('CREATE TABLE taxes (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,percentage REAL,deleted INTEGER,stripe_tax_id TEXT,sat_tax_code_id INTEGER,fiscal_tax_type TEXT,factor_type_id INTEGER,xml_rate TEXT,xml_quota TEXT,is_fiscal_ready INTEGER,use_for_administrative INTEGER,use_for_fiscal INTEGER,fiscal_notes TEXT UNIQUE,updated_at TEXT)');
 $db->query('CREATE TABLE clients (id INTEGER PRIMARY KEY AUTOINCREMENT,company_name TEXT,type TEXT,created_date TEXT,starred_by TEXT,group_ids TEXT,deleted INTEGER,is_lead INTEGER,lead_status_id INTEGER,owner_id INTEGER,created_by INTEGER,sort INTEGER,lead_source_id INTEGER,last_lead_status TEXT,stripe_customer_id TEXT,stripe_card_ending_digit INTEGER,currency TEXT,disable_online_payment INTEGER,managers TEXT)');
 $db->query('CREATE TABLE fiscal_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT,profile_type TEXT,client_id INTEGER,rfc TEXT,legal_name TEXT,tax_regime_id INTEGER,fiscal_postal_code TEXT,default_cfdi_use_id INTEGER,is_default INTEGER,status TEXT,created_at TEXT,updated_at TEXT)');
+$db->query('CREATE TABLE project_status (id INTEGER PRIMARY KEY,title TEXT,title_language_key TEXT,key_name TEXT,icon TEXT,deleted INTEGER)');
 $db->query("CREATE TABLE fiscal_documents (id INTEGER PRIMARY KEY,status TEXT); INSERT INTO fiscal_documents(id,status) VALUES(9,'stamped')");
 $service=new FiscalInstallationInitializerService($db,$root);$first=$service->run(':memory:',false);
 $assert(count($first['catalogs'])===10,'empty installation imports every supported catalog');
 $assert($db->table('taxes')->countAllResults()===3,'safe IVA defaults inserted');
 $assert($db->table('fiscal_profiles')->countAllResults()===2,'generic receiver drafts inserted');
 $assert($db->table('fiscal_profiles')->where('status','draft')->countAllResults()===2,'generic receivers remain pending issuer postal data');
+$assert($db->table('project_status')->countAllResults()===4,'canonical project status catalog inserted');
 $second=$service->run(':memory:',false);
 $assert($db->table('taxes')->countAllResults()===3&&$db->table('fiscal_profiles')->countAllResults()===2,'second execution creates no duplicates');
+$assert($db->table('project_status')->countAllResults()===4,'project status initialization is idempotent');
+$db->table('project_status')->where('id',4)->update(['title'=>'Personalizado','title_language_key'=>'custom','key_name'=>'custom']);
+try{(new ProjectStatusInitializerService($db))->initialize(false);throw new RuntimeException('FAIL custom project status overwritten');}catch(RuntimeException$e){$assert(str_contains($e->getMessage(),'custom/incompatible'),'custom project status collision blocks without overwrite');}
+$assert($db->table('project_status')->where(['id'=>4,'title'=>'Personalizado'])->countAllResults()===1,'custom project status remains unchanged');
 $assert($db->table('fiscal_documents')->where(['id'=>9,'status'=>'stamped'])->countAllResults()===1,'historical fiscal document remains unchanged');
 file_put_contents($root.'/tax_codes.csv',"code,name,description\n002,IVA,IVA\n");
 try{$service->run(':memory:',false);throw new RuntimeException('FAIL incomplete catalog accepted');}catch(RuntimeException$e){$assert(str_contains($e->getMessage(),'Checksum'),'incomplete or altered catalog fails before baseline writes');}
