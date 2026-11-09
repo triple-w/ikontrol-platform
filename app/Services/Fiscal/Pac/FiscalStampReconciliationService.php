@@ -26,7 +26,7 @@ final class FiscalStampReconciliationService
     {
         if(!$authorized)throw new RuntimeException('No tiene permiso para conciliar timbrados.');
         $lock='fiscal_stamp_reconcile_'.$attemptId;
-        if((int)($this->db->query('SELECT GET_LOCK(?,0) acquired',[$lock])->getRow('acquired')??0)!==1)throw new RuntimeException('Ya existe una conciliacion en curso.');
+        if(!$this->acquireLock($lock))throw new RuntimeException('Ya existe una conciliacion en curso.');
         try{
             $attempt=$this->db->table('fiscal_stamp_attempts')->where('id',$attemptId)->get(1)->getRow();
             if($attempt&&$attempt->status==='success_local_reconciliation_pending'){
@@ -44,6 +44,19 @@ final class FiscalStampReconciliationService
             if(!$attempt||(int)$attempt->requires_reconciliation!==1)throw new RuntimeException('El intento no requiere conciliacion.');
             if($this->db->table('fiscal_document_stamps')->where('fiscal_document_id',$attempt->fiscal_document_id)->countAllResults())return['attempt_id'=>$attemptId,'outcome'=>'stamped','idempotent'=>true];
 
+            // Stored provider evidence is the only safe recovery mechanism that
+            // does not require a UUID or a second stamping request.
+            if(trim((string)($attempt->contingency_path??''))!==''){
+                try{return $this->reconcileStoredProviderResponse($attemptId,$userId,true);}
+                catch(Throwable $e){log_message('warning','Stored PAC evidence was not sufficient for attempt {attempt}: {type}',['attempt'=>$attemptId,'type'=>get_class($e)]);}
+            }
+            if(trim((string)($attempt->uuid??''))===''){
+                $this->keepPending($attemptId,'uuid_missing','No existe UUID ni evidencia local utilizable; no se consultó SAT ni se reenvió el CFDI.');
+                return['attempt_id'=>$attemptId,'document_id'=>(int)$attempt->fiscal_document_id,
+                    'outcome'=>'manual_provider_review_required','requires_reconciliation'=>true,
+                    'automatic_retry'=>false,'external_query_executed'=>false];
+            }
+
             $adapter=$this->adapter??(new FiscalPacAdapterFactory())->create();
             try{$response=$adapter->getStampStatus($this->statusQuery($attempt));}
             catch(Throwable $e){$response=new PacResponse(null,$e->getMessage(),null,0,['reconciliation_outcome'=>'error'],true,false);}
@@ -57,7 +70,7 @@ final class FiscalStampReconciliationService
             if($outcome==='not_found_definitive')return $this->closeDefinitiveNotFound($attempt,$userId,$response);
             $this->keepPending($attemptId,$outcome,$response->message);
             return['attempt_id'=>$attemptId,'document_id'=>(int)$attempt->fiscal_document_id,'outcome'=>$outcome,'requires_reconciliation'=>true,'automatic_retry'=>false];
-        }finally{$this->db->query('SELECT RELEASE_LOCK(?)',[$lock]);}
+        }finally{$this->releaseLock($lock);}
     }
 
     public static function classifyResponse(PacResponse $response):string
@@ -84,9 +97,13 @@ final class FiscalStampReconciliationService
         $attempt=$this->db->table('fiscal_stamp_attempts')->where('id',$attemptId)->get(1)->getRow();
         if(!$attempt||(int)$attempt->requires_reconciliation!==1)throw new RuntimeException('El intento no admite conciliacion desde respuesta almacenada.');
         $outer=(new PacContingencyStorageService($this->vault??new PacSecretVault(),$this->contingencyRoot))->read((string)$attempt->contingency_path);
-        $payload=json_decode($outer,true,16,JSON_THROW_ON_ERROR);
-        if(!is_array($payload)||!isset($payload['data'])||!is_string($payload['data']))throw new RuntimeException('La evidencia no contiene data PAC utilizable.');
-        $data=(new TimbradorXpressStampDataParser())->parse(new PacResponse((string)($payload['code']??''),(string)($payload['message']??''),$payload['data'],(int)($attempt->http_status??200)));
+        if(str_starts_with(ltrim($outer),'<?xml')||str_starts_with(ltrim($outer),'<cfdi:Comprobante')){
+            $data=(new TimbradorXpressStampDataParser())->parse(new PacResponse('200','Evidencia XML local',$outer,(int)($attempt->http_status??200)));
+        }else{
+            $payload=json_decode($outer,true,16,JSON_THROW_ON_ERROR);
+            if(!is_array($payload)||!isset($payload['data'])||!is_string($payload['data']))throw new RuntimeException('La evidencia no contiene data PAC utilizable.');
+            $data=(new TimbradorXpressStampDataParser())->parse(new PacResponse((string)($payload['code']??''),(string)($payload['message']??''),$payload['data'],(int)($attempt->http_status??200)));
+        }
         $xml=(string)$data['XML'];
         $signature=$this->db->table('fiscal_document_signatures')->where(['fiscal_document_id'=>$attempt->fiscal_document_id,'signature_verified'=>1,'xsd_status'=>'valid'])->orderBy('id','DESC')->get(1)->getRow();
         if(!$signature)throw new RuntimeException('No existe XML firmado validado.');
@@ -135,5 +152,15 @@ final class FiscalStampReconciliationService
         return['attempt_id'=>(int)$attempt->id,'document_id'=>(int)$attempt->fiscal_document_id,'outcome'=>'not_found_definitive','requires_reconciliation'=>false,'automatic_retry'=>false];
     }
     private function keepPending(int$id,string$outcome,string$message):void{$this->db->table('fiscal_stamp_attempts')->where('id',$id)->update(['status'=>'reconciliation_required','requires_reconciliation'=>1,'retryable'=>0,'error_category'=>$outcome==='error'?'reconciliation_error':'status_unknown','provider_message'=>$message,'updated_at'=>get_current_utc_time()]);}
+    private function acquireLock(string$lock):bool
+    {
+        $result=$this->db->query('SELECT GET_LOCK(?,0) acquired',[$lock]);
+        try{return(int)($result->getRow('acquired')??0)===1;}finally{$result->freeResult();}
+    }
+    private function releaseLock(string$lock):void
+    {
+        try{$result=$this->db->query('SELECT RELEASE_LOCK(?) released',[$lock]);try{$result->getRow();}finally{$result->freeResult();}}
+        catch(Throwable$e){log_message('warning','Could not release fiscal reconciliation lock: {type}',['type'=>get_class($e)]);}
+    }
     private function sqlDate(string$value):string{$time=strtotime($value);if($time===false)throw new RuntimeException('Fecha de timbrado invalida.');return date('Y-m-d H:i:s',$time);}
 }

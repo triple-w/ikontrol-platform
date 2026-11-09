@@ -245,15 +245,31 @@ final class FiscalStampingService
         catch(Throwable $e){$phase=$this->isWellFormedXml($stampedXml)?'stamped_xml_semantic_invalid':'stamped_xml_invalid';$this->finishInvalidResponse((int)$attempt->id,$documentId,$phase,$response,$duration,get_class($e),$e->getMessage());throw new RuntimeException('El XML timbrado requiere conciliación.');}
         $warnings=$this->compareAuxiliary($data,$validated);
 
-        $contingency = (new PacContingencyStorageService(
-            $this->vault ?? new PacSecretVault(),
-            $this->contingencyRoot
-        ))->store((int) $attempt->id, $stampedXml);
+        // The provider result is already authoritative enough to freeze its UUID.
+        // Persist this before optional local evidence so a vault/filesystem failure
+        // can never be mislabeled as transport failure or erase reconciliation data.
         $this->db->table('fiscal_stamp_attempts')->where('id', $attempt->id)->update([
-            'contingency_path' => $contingency['path'],
-            'response_hash' => $contingency['hash'],
+            'status'=>'response_validated_local','responded_at'=>get_current_utc_time(),
+            'http_status'=>$response->httpStatus,'provider_code'=>$response->code,
+            'provider_message'=>$response->message,'uuid'=>$validated['uuid'],
+            'response_hash'=>$validated['sha256'],'parsing_phase'=>'stamped_xml_validated',
+            'requires_reconciliation'=>1,'retryable'=>0,'duration_ms'=>$duration,
             'updated_at' => get_current_utc_time(),
         ]);
+        try {
+            $contingency = (new PacContingencyStorageService(
+                $this->vault ?? new PacSecretVault(),
+                $this->contingencyRoot
+            ))->store((int) $attempt->id, $stampedXml);
+            $this->db->table('fiscal_stamp_attempts')->where('id', $attempt->id)->update([
+                'contingency_path'=>$contingency['path'],'updated_at'=>get_current_utc_time(),
+            ]);
+        } catch (Throwable $e) {
+            $warnings[]=['code'=>'pac_contingency_storage_failed','message'=>'La respuesta fue validada; la copia cifrada local quedó pendiente.'];
+            log_message('error','Stamped XML validated but contingency storage failed for attempt {attempt}: {type}',[
+                'attempt'=>$attempt->id,'type'=>get_class($e),
+            ]);
+        }
 
         try {
             $stored = (new FiscalArtifactStorageService($this->db, $this->artifactRoot))->store(
@@ -319,6 +335,8 @@ final class FiscalStampingService
                 'uuid' => $validated['uuid'],
                 'response_hash' => $validated['sha256'],
                 'duration_ms' => $duration,
+                'requires_reconciliation' => 0,
+                'retryable' => 0,
                 'updated_at' => get_current_utc_time(),
             ]);
             $this->db->table('fiscal_documents')->where('id', $documentId)->update([
@@ -850,7 +868,17 @@ final class FiscalStampingService
         $sent=array_key_exists('request_sent',$metadata)
             ? ($metadata['request_sent']===true ? 1 : ($metadata['request_sent']===false ? 0 : null))
             : ($response->transportError ? null : 1);
+        $received=array_key_exists('response_received',$metadata)
+            ? ($metadata['response_received']===true ? 1 : ($metadata['response_received']===false ? 0 : null))
+            : ($response->transportError ? 0 : 1);
         $now=get_current_utc_time();
+        $structure=is_array($metadata['response_structure']??null)?$metadata['response_structure']:[
+            'keys'=>$metadata['response_keys']??[],'has_data'=>$metadata['has_data']??false,
+        ];
+        $structure['transport_phase']=$metadata['transport_phase']??null;
+        $structure['response_received']=$metadata['response_received']??null;
+        $structure['evidence_storage']=$metadata['evidence_storage']??null;
+        $structure['evidence_storage_error_class']=$metadata['evidence_storage_error_class']??null;
         $row=[
             'response_content_type'=>$metadata['response_content_type']??null,
             'response_body_length'=>$metadata['response_body_length']??null,
@@ -858,10 +886,10 @@ final class FiscalStampingService
             'parsing_phase'=>$metadata['parsing_phase']??'transport_completed',
             'response_error_class'=>$metadata['response_error_class']??null,
             'response_error_message'=>$metadata['response_error_message']??null,
-            'response_structure'=>isset($metadata['response_structure'])?json_encode($metadata['response_structure'],JSON_UNESCAPED_SLASHES):json_encode(['keys'=>$metadata['response_keys']??[],'has_data'=>$metadata['has_data']??false],JSON_UNESCAPED_SLASHES),
+            'response_structure'=>json_encode($structure,JSON_UNESCAPED_SLASHES),
             'request_sent'=>$sent,
             'request_sent_confirmed_at'=>$sent===null?null:$now,
-            'response_received_at'=>$now,
+            'response_received_at'=>$received===1?$now:null,
         ];
         if(!empty($metadata['forensic_path']))$row['contingency_path']=$metadata['forensic_path'];
         $this->db->table('fiscal_stamp_attempts')->where('id',$attemptId)->update($row);

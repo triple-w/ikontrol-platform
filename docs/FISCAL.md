@@ -20,6 +20,8 @@ Un borrador mutable, su snapshot fiscal, un intento PAC y el XML timbrado son es
 
 Si existe posibilidad de que una solicitud haya salido al PAC, no autorices reintento automático: primero debe resolverse el resultado incierto. Reserva, liberación y consumo de timbres deben conservar correspondencia con el intento; esta cuenta no es una cuenta bancaria.
 
+Una falla al cifrar o escribir la copia local de contingencia no es una falla de transporte. El adaptador conserva por separado si hubo respuesta HTTP, si pudo interpretarse y si la evidencia cifrada quedó disponible. Si el XML timbrado fue validado, su UUID se congela antes del almacenamiento opcional de contingencia y el flujo continúa hacia el artefacto canónico. La conciliación sin UUID sólo puede usar evidencia local válida; nunca invoca `consultarEstadoSAT` ni reenvía el CFDI. El diagnóstico no secreto se obtiene con `php spark ikontrol:fiscal-stamp-attempt-diagnose <attempt-id>`.
+
 Los guards no deben deshabilitarse para hacer pasar pruebas. No se realizan operaciones PAC reales durante desarrollo automatizado de este repositorio.
 
 ## Ambientes: implementación frente a objetivo
