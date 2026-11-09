@@ -7,7 +7,7 @@ use DOMDocument; use DOMXPath; use RuntimeException;
 final class FiscalRejectedDraftReplacementService
 {
     public function __construct(private mixed $db=null){$this->db??=db_connect();}
-    public function prepare(int$rejectedDraftId,int$userId):array
+    public function prepare(int$rejectedDraftId,int$userId,array$corrections=[]):array
     {
         $old=$this->db->table('fiscal_drafts')->where('id',$rejectedDraftId)->get(1)->getRow();
         if(!$old||!(int)$old->fiscal_document_id)throw new RuntimeException('El borrador rechazado no existe.');
@@ -17,6 +17,7 @@ final class FiscalRejectedDraftReplacementService
         $saleIds=array_map('intval',array_column($this->db->table('fiscal_draft_sales')->select('sale_id')->where('fiscal_draft_id',$rejectedDraftId)->get()->getResultArray(),'sale_id'));
         if(!$saleIds)throw new RuntimeException('El borrador anterior no tiene ventas relacionadas.');
         if((string)$old->status==='discarded'){
+            if($corrections)throw new RuntimeException('La preparacion rechazada ya fue reemplazada; no se pueden aplicar correcciones sobre el XML anterior.');
             $replacement=$this->db->table('fiscal_drafts d')->select('d.id,d.fiscal_document_id')->join('fiscal_draft_sales a','a.fiscal_draft_id=d.id')->where('a.sale_id',$saleIds[0])->where('a.allocation_status','reserved')->where('d.id >',$rejectedDraftId)->where('d.fiscal_document_id IS NOT NULL',null,false)->orderBy('d.id','DESC')->get(1)->getRow();
             if(!$replacement||$this->db->table('fiscal_stamp_attempts')->where('fiscal_document_id',(int)$replacement->fiscal_document_id)->countAllResults())throw new RuntimeException('No existe una preparación de reemplazo reanudable.');
             $preXml=(new CfdiPreXmlArtifactService($this->db))->generate((int)$replacement->fiscal_document_id,$userId,true);$inspection=$this->inspectXml((string)$preXml['xml']);if(!$inspection['valid'])throw new RuntimeException('El Pre-XML regenerado no cumple las ecuaciones fiscales requeridas.');
@@ -26,7 +27,8 @@ final class FiscalRejectedDraftReplacementService
         $quantities=[];foreach($this->db->table('fiscal_draft_items')->select('sale_item_id,quantity')->where('fiscal_draft_id',$rejectedDraftId)->get()->getResult()as$item)$quantities[(int)$item->sale_item_id]=(string)$item->quantity;
         $workflow=new FiscalDraftWorkflowService($this->db);$workflow->discard($rejectedDraftId,$userId,'Reemplazo seguro posterior a rechazo PAC definitivo; evidencia conservada.');
         $zone=new \DateTimeZone((new FiscalIssueDatePolicy())->constraints()['timezone']);
-        $input=['ux_mode'=>'normal','save_as_draft'=>0,'sale_ids'=>$saleIds,'quantities'=>$quantities,'issuer_id'=>(int)$old->issuer_id,'receiver_profile_id'=>(int)$old->receiver_profile_id,'fiscal_series_id'=>(int)$old->fiscal_series_id,'issue_date'=>(new \DateTimeImmutable('now',$zone))->format('Y-m-d\TH:i'),'currency_code'=>(string)$old->currency_code,'exchange_rate'=>(string)$old->exchange_rate,'payment_method_code'=>(string)$old->payment_method_code,'payment_form_code'=>(string)$old->payment_form_code,'cfdi_use_code'=>(string)$old->cfdi_use_code,'conditions'=>(string)$old->conditions,'observations'=>(string)$old->observations];
+        $input=['ux_mode'=>'normal','save_as_draft'=>0,'sale_ids'=>$saleIds,'quantities'=>$quantities,'issuer_id'=>(int)$old->issuer_id,'receiver_profile_id'=>(int)$old->receiver_profile_id,'fiscal_series_id'=>(int)$old->fiscal_series_id,'issue_date'=>(new \DateTimeImmutable('now',$zone))->format('Y-m-d\TH:i'),'currency_code'=>(string)$old->currency_code,'exchange_rate'=>(string)$old->exchange_rate,'payment_method_code'=>(string)$old->payment_method_code,'payment_form_code'=>(string)$old->payment_form_code,'cfdi_use_code'=>(string)$old->cfdi_use_code,'global_periodicity'=>(string)($old->global_periodicity??''),'global_months'=>(string)($old->global_months??''),'global_year'=>(string)($old->global_year??''),'conditions'=>(string)$old->conditions,'observations'=>(string)$old->observations];
+        foreach(['receiver_profile_id','cfdi_use_code','global_periodicity','global_months','global_year']as$field)if(array_key_exists($field,$corrections))$input[$field]=$corrections[$field];
         $saved=$workflow->save($input,$userId);$draftId=(int)$saved['id'];if(($saved['status']??'')!=='ready')throw new RuntimeException('La nueva preparación no quedó lista.');
         $documentId=(new FiscalDocumentFromDraftSnapshotService($this->db))->materialize($draftId,$userId);$preXml=(new CfdiPreXmlArtifactService($this->db))->generate($documentId,$userId,true);$inspection=$this->inspectXml((string)$preXml['xml']);
         if(!$inspection['valid'])throw new RuntimeException('El Pre-XML regenerado no cumple las ecuaciones fiscales requeridas.');

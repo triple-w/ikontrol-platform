@@ -190,6 +190,7 @@ final class FiscalDraftWorkflowService
         $seriesId=(int)($input['fiscal_series_id']??0);
         $series=$this->db->table('fiscal_series')->where(['id'=>$seriesId,'issuer_profile_id'=>$issuerId,'environment'=>config('Fiscal')->environment,'is_active'=>1,'deleted'=>0])->groupStart()->where('document_type','income')->orWhere('document_type','ingreso')->orWhere('document_type','I')->groupEnd()->get(1)->getRow();
         $operationDates=array_column($this->db->table('invoices')->select('bill_date')->whereIn('id',$saleIds)->get()->getResultArray(),'bill_date');
+        (new FiscalReceiverRuleService($this->db))->validate((array)$receiver+['tax_regime_code'=>(string)($regime->code??'')],(string)($cfdiUse->code??''),'I',(string)($issuer->expedition_postal_code??''),$issueDate);
         $global=(new FiscalGlobalInformationService())->validate($input,(array)$receiver+['tax_regime_code'=>(string)($regime->code??'')],(string)($cfdiUse->code??''),'I',$issueDate,$operationDates,(array)$issuer+['tax_regime_code'=>(string)($issuerRegime->code??'')]);
         $draftData = [
             'issuer_id'=>$issuerId,'receiver_profile_id'=>$receiverId,

@@ -63,6 +63,7 @@ final class FiscalDraftStampingPreflightService
         try {
             $operationDates=[];
             foreach($snapshot['allocations']as$allocation){$sale=$this->db->table('invoices')->select('bill_date')->where('id',(int)$allocation['sale_id'])->get(1)->getRow();$operationDates[]=(string)($sale->bill_date??'');}
+            (new FiscalReceiverRuleService($this->db))->validate($snapshot['receiver_snapshot']+['tax_regime_code'=>(string)($draft['receiver_tax_regime_code']??'')],(string)($draft['cfdi_use_code']??''),'I',(string)($snapshot['issuer_snapshot']['expedition_postal_code']??$draft['expedition_postal_code']??''),(string)($draft['issue_date']??''));
             (new FiscalGlobalInformationService())->validate($draft,$snapshot['receiver_snapshot']+['tax_regime_code'=>(string)($draft['receiver_tax_regime_code']??'')],(string)($draft['cfdi_use_code']??''),'I',(string)($draft['issue_date']??''),$operationDates,$snapshot['issuer_snapshot']);
         } catch (Throwable $exception) {
             $errors[] = $exception->getMessage();
