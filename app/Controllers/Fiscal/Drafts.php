@@ -52,22 +52,27 @@ final class Drafts extends Security_Controller
 
     public function create($saleId=0)
     {
+        $started=hrtime(true);$timings=[];$mark=static function(string$stage)use(&$started,&$timings):void{$now=hrtime(true);$timings[$stage]=(int)round(($now-$started)/1000000);$started=$now;};
         // Legacy permission contract: guard('fiscal.drafts.create'); the commercial
         // fiscal.sales.invoice permission is equivalent only for this canonical entry.
         $this->guardAny(['fiscal.drafts.create','fiscal.sales.invoice']);$this->guardSale((int)$saleId);
         $workflow=new FiscalDraftWorkflowService();$draftId=$this->activeDraftForSale((int)$saleId);
-        $data=$draftId?$this->formData($draftId,[]):$this->formData(null,[(int)$saleId]);
+        $mark('resolve_draft');
+        $data=$draftId?$this->formData($draftId,[],false):$this->formData(null,[(int)$saleId],false);
+        $mark('form_data');
         if(!$draftId){$input=$this->defaultReviewInput($data,(int)$saleId);$input['save_as_draft']=0;try{$data['preparation']=(new FiscalReviewPreparation())->prepare($data,$input);}catch(Throwable$e){if(!str_contains($e->getMessage(),'FISCAL_CALCULATION_'))throw$e;$data['preparation']=['draft'=>['issue_date'=>$input['issue_date']??'','subtotal'=>'0.000000','discount'=>'0.000000','tax_total'=>'0.000000','total'=>'0.000000'],'items'=>[],'allocations'=>[],'totals'=>['subtotal'=>'0.000000','discount'=>'0.000000','transferred'=>'0.000000','withheld'=>'0.000000','total'=>'0.000000'],'validation'=>['valid'=>false,'errors'=>[['field'=>'sales','code'=>'SALES_REQUIRED','message'=>'La venta no contiene partidas para facturar.','section'=>'sales']],'warnings'=>[]]];}}
+        $mark('prepare_new');
         $data['normal_sale_id']=(int)$saleId;$data['review']=$this->review($data);
-        if($this->request->isAJAX())return$this->template->view('fiscal/drafts/review',$data);
-        return$this->template->rander('fiscal/drafts/review',$data);
+        $mark('readiness');$result=$this->request->isAJAX()?$this->template->view('fiscal/drafts/review',$data):$this->template->rander('fiscal/drafts/review',$data);$mark('render');
+        log_message('info','FISCAL_REVIEW_TIMING {detail}',['detail'=>json_encode(['sale_id'=>(int)$saleId,'draft_id'=>$draftId,'milliseconds'=>$timings,'total_ms'=>array_sum($timings)],JSON_UNESCAPED_SLASHES)]);
+        return$result;
     }
 
     public function store(): void
     {
         $this->response->setContentType('application/json');
         $this->guardAny(['fiscal.drafts.create','fiscal.sales.invoice']);$saleIds=array_map('intval',(array)$this->request->getPost('sale_ids'));foreach($saleIds as$id)$this->guardSale($id);
-        try{$workflow=new FiscalDraftWorkflowService();if($this->request->getPost('confirm_receiver_update')){$sale=db_connect()->table('invoices')->where('id',$saleIds[0])->get(1)->getRow();$workflow->updateReceiver((int)$this->request->getPost('receiver_profile_id'),(int)$sale->client_id,(array)$this->request->getPost(),(int)$this->login_user->id);}$result=$workflow->save((array)$this->request->getPost(),(int)$this->login_user->id);$response=['success'=>true,'message'=>'Revisión fiscal actualizada.','redirect'=>get_uri('fiscal/drafts/'.$result['id']),'data'=>$result,'csrf'=>['name'=>csrf_token(),'hash'=>csrf_hash()]];if($this->request->getPost('ux_mode')==='normal'){$data=$this->formData((int)$result['id'],[]);$data['normal_sale_id']=(int)($this->request->getPost('sale_context_id')?:($saleIds[0]??0));$data['review']=$this->review($data);$response['html']=$this->template->view('fiscal/drafts/review',$data);}echo json_encode($response);}
+        try{$workflow=new FiscalDraftWorkflowService();if($this->request->getPost('confirm_receiver_update')){$sale=db_connect()->table('invoices')->where('id',$saleIds[0])->get(1)->getRow();$workflow->updateReceiver((int)$this->request->getPost('receiver_profile_id'),(int)$sale->client_id,(array)$this->request->getPost(),(int)$this->login_user->id);}$result=$workflow->save((array)$this->request->getPost(),(int)$this->login_user->id);$response=['success'=>true,'message'=>'Revisión fiscal actualizada.','redirect'=>get_uri('fiscal/drafts/'.$result['id']),'data'=>$result,'csrf'=>['name'=>csrf_token(),'hash'=>csrf_hash()]];if($this->request->getPost('ux_mode')==='normal'){$data=$this->formData((int)$result['id'],[],false);$data['normal_sale_id']=(int)($this->request->getPost('sale_context_id')?:($saleIds[0]??0));$data['review']=$this->review($data);$response['html']=$this->template->view('fiscal/drafts/review',$data);}echo json_encode($response);}
         catch(Throwable$e){echo json_encode(['success'=>false,'message'=>$this->workflowError($e),'csrf'=>['name'=>csrf_token(),'hash'=>csrf_hash()]]);}
     }
 
@@ -115,7 +120,7 @@ final class Drafts extends Security_Controller
     {
         $this->response->setContentType('application/json');
         if($this->request->getPost('ux_mode')==='normal')$this->guardAny(['fiscal.drafts.edit','fiscal.drafts.create','fiscal.sales.invoice']);else{$this->guard('fiscal.advanced.view');$this->guard('fiscal.drafts.edit');}$this->guardDraft((int)$draftId);$saleIds=array_map('intval',(array)$this->request->getPost('sale_ids'));foreach($saleIds as$id)$this->guardSale($id);
-        try{$workflow=new FiscalDraftWorkflowService();if($this->request->getPost('confirm_receiver_update')){$sale=db_connect()->table('invoices')->where('id',$saleIds[0])->get(1)->getRow();$workflow->updateReceiver((int)$this->request->getPost('receiver_profile_id'),(int)$sale->client_id,(array)$this->request->getPost(),(int)$this->login_user->id);}$result=$workflow->save((array)$this->request->getPost(),(int)$this->login_user->id,(int)$draftId);$response=['success'=>true,'message'=>'Revisión fiscal actualizada.','redirect'=>get_uri('fiscal/drafts/'.$draftId),'data'=>$result,'csrf'=>['name'=>csrf_token(),'hash'=>csrf_hash()]];if($this->request->getPost('ux_mode')==='normal'){$data=$this->formData((int)$draftId,[]);$data['normal_sale_id']=(int)($this->request->getPost('sale_context_id')?:($saleIds[0]??0));$data['review']=$this->review($data);$response['html']=$this->template->view('fiscal/drafts/review',$data);}echo json_encode($response);}
+        try{$workflow=new FiscalDraftWorkflowService();if($this->request->getPost('confirm_receiver_update')){$sale=db_connect()->table('invoices')->where('id',$saleIds[0])->get(1)->getRow();$workflow->updateReceiver((int)$this->request->getPost('receiver_profile_id'),(int)$sale->client_id,(array)$this->request->getPost(),(int)$this->login_user->id);}$result=$workflow->save((array)$this->request->getPost(),(int)$this->login_user->id,(int)$draftId);$response=['success'=>true,'message'=>'Revisión fiscal actualizada.','redirect'=>get_uri('fiscal/drafts/'.$draftId),'data'=>$result,'csrf'=>['name'=>csrf_token(),'hash'=>csrf_hash()]];if($this->request->getPost('ux_mode')==='normal'){$data=$this->formData((int)$draftId,[],false);$data['normal_sale_id']=(int)($this->request->getPost('sale_context_id')?:($saleIds[0]??0));$data['review']=$this->review($data);$response['html']=$this->template->view('fiscal/drafts/review',$data);}echo json_encode($response);}
         catch(Throwable$e){echo json_encode(['success'=>false,'message'=>$this->workflowError($e),'csrf'=>['name'=>csrf_token(),'hash'=>csrf_hash()]]);}
     }
 
@@ -183,7 +188,7 @@ final class Drafts extends Security_Controller
     }
 
     private function stampMessage(Throwable$e):string{$safe=['El borrador debe editarse y guardarse nuevamente antes de facturarse.','El borrador no está listo para facturarse.','El borrador ya está siendo procesado.','La fecha de expedición ya no es válida.','El emisor no tiene un CSD utilizable.','Una venta relacionada no está disponible para facturación.'];return in_array($e->getMessage(),$safe,true)?$e->getMessage():'No fue posible generar el CFDI. Revisa el borrador e inténtalo nuevamente.';}
-    private function formData(?int$id,array$sales):array{return(new FiscalDraftWorkflowService())->formData($id,$sales)+['draft_id'=>$id];}
+    private function formData(?int$id,array$sales,bool$includeCompatibleSales=true):array{return(new FiscalDraftWorkflowService())->formData($id,$sales,$includeCompatibleSales)+['draft_id'=>$id];}
     private function review(array$data):array
     {
         $review=(new FiscalReviewPresenter())->present($data,$this->allowed('fiscal.advanced.view'));

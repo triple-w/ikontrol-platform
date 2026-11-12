@@ -37,7 +37,7 @@ final class FiscalDraftWorkflowService
         return $result;
     }
 
-    public function formData(?int $draftId, array $saleIds): array
+    public function formData(?int $draftId, array $saleIds, bool $includeCompatibleSales = true): array
     {
         $draft = $draftId ? $this->draft($draftId) : null;
         if ($draft) {
@@ -50,7 +50,13 @@ final class FiscalDraftWorkflowService
         $saleIds = array_values(array_unique(array_filter(array_map('intval', $saleIds))));
         if (!$saleIds) throw new RuntimeException('Selecciona al menos una venta.');
         $anchor = $this->sale($saleIds[0]);
-        $compatible = $this->compatibleSales((int) $anchor->id, $draftId);
+        $compatible = $includeCompatibleSales
+            ? $this->compatibleSales((int) $anchor->id, $draftId)
+            : [[
+                'sale'=>$anchor,
+                'summary'=>$this->allocations->getSaleFiscalSummary((int)$anchor->id),
+                'available'=>$this->allocations->getAvailableAmount((int)$anchor->id,$draftId),
+            ]];
         $allowed = array_column(array_map(static fn(array $row): array => ['id'=>(int)$row['sale']->id], $compatible), 'id');
         foreach ($saleIds as $id) if (!in_array($id, $allowed, true)) throw new RuntimeException('Una venta seleccionada no es fiscalmente compatible.');
         $sales = [];
@@ -79,8 +85,10 @@ final class FiscalDraftWorkflowService
             'payment_methods'=>$catalog($this->db,'sat_payment_methods'),
             'cfdi_uses'=>$catalog($this->db,'sat_cfdi_uses'),
             'tax_regimes'=>$catalog($this->db,'sat_tax_regimes'),
-            'product_service_keys'=>$catalog($this->db,'sat_product_service_keys'),
-            'unit_keys'=>$catalog($this->db,'sat_unit_keys'),
+            // ClaveProdServ and ClaveUnidad are searched/validated by code; the
+            // review does not render their complete (very large) catalogs.
+            'product_service_keys'=>[],
+            'unit_keys'=>[],
             'tax_object_codes'=>$catalog($this->db,'sat_tax_object_codes'),
             'tax_codes'=>$catalog($this->db,'sat_tax_codes'),
             'payment_suggestion'=>$paymentSuggestion,

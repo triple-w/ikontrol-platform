@@ -296,7 +296,7 @@ final class FiscalSaleAllocationService
 
     public function hasBlockingOperation(int $saleId): bool
     {
-        return $this->db->table('fiscal_document_sales a')
+        $direct=$this->db->table('fiscal_document_sales a')
             ->join('fiscal_stamp_attempts s','s.fiscal_document_id=a.fiscal_document_id')
             ->where('a.sale_id',$saleId)
             ->groupStart()
@@ -304,6 +304,18 @@ final class FiscalSaleAllocationService
                 ->orWhere('s.requires_reconciliation',1)
             ->groupEnd()
             ->countAllResults() > 0;
+        if($direct)return true;
+        // Before a UUID exists allocations still belong to the draft. Follow
+        // source_draft_id so an older unknown attempt cannot be bypassed by a
+        // newer preparation for the same sale.
+        return $this->db->table('fiscal_draft_sales a')
+            ->join('fiscal_documents d','d.source_draft_id=a.fiscal_draft_id')
+            ->join('fiscal_stamp_attempts s','s.fiscal_document_id=d.id')
+            ->where('a.sale_id',$saleId)
+            ->groupStart()
+                ->whereIn('s.status',['pending','sending','unknown','timeout_unknown','transport_unknown','reconciliation_required'])
+                ->orWhere('s.requires_reconciliation',1)
+            ->groupEnd()->countAllResults()>0;
     }
 
     private function validateParts(array $allocation): void

@@ -23,7 +23,9 @@ final class FiscalDocumentFromDraftSnapshotService
             if (!$lockedDraft) throw new RuntimeException('El borrador fiscal no existe.');
             if ((int)($lockedDraft->fiscal_document_id ?? 0) > 0) {
                 $existing = $this->db->table('fiscal_documents')->where(['id'=>(int)$lockedDraft->fiscal_document_id,'deleted'=>0])->get(1)->getRow();
-                if ($existing) { $this->db->transCommit(); return (int)$existing->id; }
+                $principal=(new FiscalPreparedDocumentLifecycleService($this->db))->principalDocumentId($draftId);
+                if ($existing && $principal===(int)$existing->id) { $this->db->transCommit(); return (int)$existing->id; }
+                if($existing)$this->db->table('fiscal_drafts')->where(['id'=>$draftId,'fiscal_document_id'=>(int)$existing->id])->update(['fiscal_document_id'=>null,'updated_by'=>$userId,'updated_at'=>get_current_utc_time()]);
             }
             $snapshot = $saleFlow ? $this->preflight->requireReadyForSaleFlow($draftId) : $this->preflight->requireReady($draftId);
             $draft = $snapshot['draft'];

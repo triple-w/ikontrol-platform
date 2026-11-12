@@ -103,6 +103,10 @@ final class FiscalDraftStampingPreflightService
                 break;
             }
             $allocated += FiscalDecimal::micros((string)$allocation['allocated_total']);
+            if($availability->hasBlockingOperation((int)$allocation['sale_id'])){
+                $errors[]='La venta tiene un intento fiscal anterior pendiente de conciliación.';
+                continue;
+            }
             $sale = $this->db->table('invoices')->select('status,commercial_status,deleted')
                 ->where('id', (int)$allocation['sale_id'])->get(1)->getRowArray();
             if (!$sale || (int)$sale['deleted'] === 1 || $sale['status'] === 'cancelled'
@@ -135,11 +139,7 @@ final class FiscalDraftStampingPreflightService
         } catch (Throwable) {
             $errors[] = 'La fecha de expedición ya no es válida.';
         }
-        $preparedDocumentId = (int)($draft['fiscal_document_id'] ?? 0);
-        if (!$preparedDocumentId) {
-            $preparedDocumentId = (int)($this->db->table('fiscal_documents')->select('id')
-                ->where('source_draft_id', $draftId)->get(1)->getRow()?->id ?? 0);
-        }
+        $preparedDocumentId = (new FiscalPreparedDocumentLifecycleService($this->db))->principalDocumentId($draftId);
         if ($preparedDocumentId) {
             if (!$allowPreparedDocument) {
                 $errors[] = 'El borrador ya tiene un documento fiscal principal.';

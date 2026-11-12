@@ -969,7 +969,7 @@ class Invoices extends Security_Controller {
                     $view_data['fiscal_sale_summary'] =
                         (new \App\Services\Fiscal\FiscalSaleAllocationService())->getSaleFiscalSummary((int) $invoice_id);
                     $view_data['fiscal_sale_review_status'] = null;
-                    if($view_data['fiscal_sale_summary']['active_drafts']){try{$draftId=(int)$view_data['fiscal_sale_summary']['active_drafts'][0]['fiscal_draft_id'];$workflowData=(new \App\Services\Fiscal\FiscalDraftWorkflowService())->formData($draftId,[]);$view_data['fiscal_sale_review_status']=(new \App\Services\Fiscal\FiscalReviewPresenter())->present($workflowData,false)['status'];}catch(\Throwable){$view_data['fiscal_sale_review_status']='review_needed';}}
+                    if($view_data['fiscal_sale_summary']['active_drafts']){try{$draftId=(int)$view_data['fiscal_sale_summary']['active_drafts'][0]['fiscal_draft_id'];$workflowData=(new \App\Services\Fiscal\FiscalDraftWorkflowService())->formData($draftId,[],false);$view_data['fiscal_sale_review_status']=(new \App\Services\Fiscal\FiscalReviewPresenter())->present($workflowData,false)['status'];}catch(\Throwable){$view_data['fiscal_sale_review_status']='review_needed';}}
                     $view_data['fiscal_sale_permissions'] = [
                         'create_draft' => $hasFiscalPermission('fiscal.sales.invoice')
                             || $hasFiscalPermission('fiscal.drafts.create'),

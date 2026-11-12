@@ -81,9 +81,32 @@ final class FiscalPreparedDocumentLifecycleService
     public static function decision(string$oldHash,string$currentHash,bool$hasStamp,array$attempts,string$documentStatus='locked'):string
     {
         if($hasStamp||$documentStatus==='stamped')return'protected';
-        foreach($attempts as$attempt){$v=static fn(string$key,mixed$default=null):mixed=>is_array($attempt)?($attempt[$key]??$default):($attempt->{$key}??$default);if(trim((string)$v('uuid',''))!==''||(int)$v('requires_reconciliation',0)===1||in_array((string)$v('status',''),self::UNCERTAIN,true))return'protected';}
+        $definitiveRejection=false;
+        foreach($attempts as$attempt){$v=static fn(string$key,mixed$default=null):mixed=>is_array($attempt)?($attempt[$key]??$default):($attempt->{$key}??$default);if(trim((string)$v('uuid',''))!==''||(int)$v('requires_reconciliation',0)===1||in_array((string)$v('status',''),self::UNCERTAIN,true))return'protected';if(in_array((string)$v('status',''),['rejected','provider_rejected'],true))$definitiveRejection=true;}
+        if($definitiveRejection)return'invalidate';
+        // A superseded document is historical even when its source hash still
+        // matches the mutable draft. Reusing it would revive an invalidated
+        // folio/XML and leave the draft permanently blocked.
+        if(in_array($documentStatus,['superseded','rejected','cancelled'],true))return'invalidate';
         if($oldHash!==''&&hash_equals($oldHash,$currentHash))return'reuse';
         return'invalidate';
+    }
+
+    /** Returns only an operational/protected principal; historical rows stay history. */
+    public function principalDocumentId(int $draftId):int
+    {
+        $draft=$this->db->table('fiscal_drafts')->select('fiscal_document_id')->where('id',$draftId)->get(1)->getRow();
+        $linked=(int)($draft->fiscal_document_id??0);
+        $documents=$this->db->table('fiscal_documents')->select('id,status')->where(['source_draft_id'=>$draftId,'deleted'=>0])->orderBy('id','DESC')->get()->getResult();
+        if($linked){usort($documents,static fn($a,$b)=>(int)$b->id===$linked?1:((int)$a->id===$linked?-1:0));}
+        foreach($documents as$document){
+            $id=(int)$document->id;$status=(string)$document->status;$attempts=$this->attemptEvidence($id);
+            $stamp=(bool)$this->db->table('fiscal_document_stamps')->where('fiscal_document_id',$id)->countAllResults();
+            $decision=self::decision('same','same',$stamp,$attempts,$status);
+            if($decision==='protected')return$id;
+            if($decision==='reuse')return$id;
+        }
+        return 0;
     }
 
     private function isProtected(int$documentId,string$status):bool

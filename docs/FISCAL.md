@@ -26,6 +26,10 @@ Los guards no deben deshabilitarse para hacer pasar pruebas. No se realizan oper
 
 La combinación receptor/UsoCFDI se valida antes de materializar o reservar un timbre. La autoridad compartida comprueba actividad, vigencia y aplicabilidad de los catálogos SAT instalados; para `XAXX010101000` y `XEXX010101000` exige régimen `616`, UsoCFDI `S01` y domicilio igual al lugar de expedición. En CFDI de ingreso, `XAXX010101000` exige además el nombre `PUBLICO EN GENERAL` y las reglas de `InformacionGlobal`. Un rechazo PAC definitivo conserva código y mensaje sanitizados y sólo se sustituye mediante un documento y snapshot nuevos; nunca se reutiliza el XML rechazado.
 
+Un documento `superseded` o con rechazo PAC definitivo es historia, no el principal activo del borrador. El mismo borrador puede materializar una preparación nueva conservando el documento, intento y folio anteriores; un intento incierto o un UUID siguen bloqueando cualquier sustitución. El folio se asigna bajo bloqueo de serie al confirmar el timbrado, no al guardar el borrador, y no se recicla automáticamente después de haber creado evidencia de preparación o transporte.
+
+La revisión fiscal normal carga sólo la venta seleccionada y no materializa en HTML los catálogos completos de `ClaveProdServ` o `ClaveUnidad`. La ruta registra `FISCAL_REVIEW_TIMING` con identificadores internos y milisegundos por etapa; no incluye RFC, XML ni secretos. El objetivo de menos de dos segundos debe comprobarse en cada instancia con esa medición antes de considerarlo cumplido.
+
 ## Ambientes: implementación frente a objetivo
 
 [Fiscal.php](../app/Config/Fiscal.php), [TimbradorXpress.php](../app/Config/TimbradorXpress.php) y el [adaptador](../app/Services/Fiscal/Pac/TimbradorXpressRestAdapter.php) son las fuentes de comportamiento actual. Entorno de CodeIgniter, modo de ejecución fiscal y destino PAC son conceptos distintos; actualmente todavía existen dependencias y guardas específicas de entorno. El adaptador Base bloquea producción.
