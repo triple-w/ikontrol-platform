@@ -5,6 +5,7 @@ namespace App\Services\Fiscal;
 
 use RuntimeException;
 use Throwable;
+use App\Services\Upgrade\FiscalDraftDocumentSchemaUpgradeService;
 
 final class FiscalDocumentFromDraftSnapshotService
 {
@@ -16,6 +17,7 @@ final class FiscalDocumentFromDraftSnapshotService
 
     public function materialize(int $draftId, int $userId, bool $saleFlow = false): int
     {
+        (new FiscalDraftDocumentSchemaUpgradeService($this->db))->assertCompatible();
         $this->db->transBegin();
         try {
             $draftTable = $this->db->prefixTable('fiscal_drafts');
@@ -66,6 +68,7 @@ final class FiscalDocumentFromDraftSnapshotService
                 'source_snapshot_hash' => $sourceHash, 'created_by' => $userId,
                 'created_at' => $now, 'updated_at' => $now, 'locked_at' => $now, 'deleted' => 0,
             ];
+            if($this->db->fieldExists('active_source_draft_id','fiscal_documents'))$document['active_source_draft_id']=$draftId;
             if (!$this->db->table('fiscal_documents')->insert($document)) throw new RuntimeException('No fue posible crear el documento fiscal.');
             $documentId = (int)$this->db->insertID();
             $this->insertParties($documentId, $snapshot, $now);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Services\Fiscal;
 
 use App\Services\Fiscal\Signing\CsdCertificateSecretService;
+use App\Services\Upgrade\FiscalDraftDocumentSchemaUpgradeService;
 use RuntimeException;
 use Throwable;
 
@@ -28,6 +29,10 @@ final class FiscalDraftStampingPreflightService
     private function inspectWithSalePolicy(int $draftId, bool $allowPreparedDocument, bool $allowOpenSale): array
     {
         $errors = [];
+        $schema=(new FiscalDraftDocumentSchemaUpgradeService($this->db))->inspect();
+        if(!$schema['compatible']){
+            return $this->result(null,['El esquema fiscal requiere el upgrade dirigido de documentos por borrador. Ejecute php spark ikontrol:fiscal-draft-documents-schema --apply --yes.']);
+        }
         try {
             $snapshot = $this->snapshots->getCompleteFiscalSnapshot($draftId);
         } catch (Throwable) {

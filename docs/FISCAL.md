@@ -37,3 +37,16 @@ La revisión fiscal normal carga sólo la venta seleccionada y no materializa en
 Unificar sandbox/production bajo el mismo pipeline y una sola selección fiscal es trabajo pendiente de conciliación, no una capacidad certificada por este documento. No copies la configuración operativa de Navika para habilitarlo.
 
 Para contexto de diseño consulta [control comercial de timbres](fiscal/stamp-commercial-control.md) y [vault CSD](INCREMENTO_A2_VAULT_CSD.md). Son antecedentes: verifica sus afirmaciones contra el código al modificar esos flujos; no contienen autorización para operar credenciales o servicios reales.
+# Preparaciones históricas por borrador (hotfix 1.1.6)
+
+El índice legado `uq_fiscal_document_source_draft` impedía reemplazar una preparación definitivamente rechazada o `superseded`. El contrato vigente conserva `source_draft_id` como relación histórica no única y usa `active_source_draft_id` (nullable) con `uq_fiscal_document_active_source_draft` para garantizar como máximo un documento principal activo por borrador. Un CFDI timbrado o un intento incierto permanece activo/protegido; sólo una preparación definitivamente histórica libera esa identidad.
+
+La comprobación es de sólo lectura:
+
+`php spark ikontrol:fiscal-draft-documents-schema`
+
+La aplicación dirigida, idempotente y exclusiva para MySQL/MariaDB es:
+
+`php spark ikontrol:fiscal-draft-documents-schema --apply --yes`
+
+Debe ejecutarse en mantenimiento y después de un respaldo consistente. No usa `spark migrate`, no reenumera documentos o folios y no modifica intentos, UUID, snapshots ni reservas. La revisión fiscal bloquea antes de materializar si el contrato de índices todavía no está instalado.

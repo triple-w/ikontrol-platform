@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS `{{prefix}}fiscal_documents` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `invoice_id` int(10) unsigned DEFAULT NULL,
   `source_draft_id` bigint(20) unsigned DEFAULT NULL,
+  `active_source_draft_id` bigint(20) unsigned DEFAULT NULL,
   `issuer_profile_id` int(10) unsigned NOT NULL,
   `receiver_profile_id` int(10) unsigned NOT NULL,
   `fiscal_series_id` int(10) unsigned NOT NULL,
@@ -162,7 +163,8 @@ CREATE TABLE IF NOT EXISTS `{{prefix}}fiscal_documents` (
   `is_test_fixture` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_fiscal_document_folio` (`issuer_profile_id`,`document_type`,`series`,`folio`),
-  UNIQUE KEY `uq_fiscal_document_source_draft` (`source_draft_id`),
+  KEY `idx_fiscal_document_source_draft` (`source_draft_id`),
+  UNIQUE KEY `uq_fiscal_document_active_source_draft` (`active_source_draft_id`),
   KEY `idx_fiscal_document_invoice_status` (`invoice_id`,`status`,`deleted`),
   KEY `idx_fiscal_document_snapshot` (`invoice_id`,`source_snapshot_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

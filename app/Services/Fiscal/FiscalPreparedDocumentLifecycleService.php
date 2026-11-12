@@ -40,7 +40,7 @@ final class FiscalPreparedDocumentLifecycleService
         if($decision==='reuse')return['prepared'=>true,'action'=>'reused','document_id'=>$documentId,'snapshot_hash'=>$currentHash];
         if($decision==='protected')throw new RuntimeException('El documento fiscal tiene un timbre o un resultado PAC pendiente de conciliacion.');
         $this->db->transStart();
-        $this->db->table('fiscal_documents')->where('id',$documentId)->update(['status'=>'superseded','stamp_updated_at'=>get_current_utc_time()]);
+        $this->db->table('fiscal_documents')->where('id',$documentId)->update($this->historicalUpdate(get_current_utc_time()));
         $this->detachDraft($draftId,$documentId,$userId);
         $this->db->table('fiscal_draft_audit')->insert(['fiscal_draft_id'=>$draftId,'sale_id'=>null,'user_id'=>$userId,'event'=>'draft_prepared_document_invalidated','summary_json'=>json_encode(['draft_id'=>$draftId,'old_document_id'=>$documentId,'reason'=>'snapshot_changed','old_source_snapshot_hash'=>$oldHash?:null,'current_snapshot_hash'=>$currentHash],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),'created_at'=>get_current_utc_time()]);
         $this->db->transComplete();
@@ -63,7 +63,7 @@ final class FiscalPreparedDocumentLifecycleService
             $draft=$this->db->table('fiscal_drafts')->select('id')->where('fiscal_document_id',$documentId)->get(1)->getRow();
             $now=get_current_utc_time();
             $this->db->table('fiscal_stamp_attempts')->where('id',$attemptId)->update(['status'=>'transport_not_sent_invalidated','retryable'=>0,'reconciled_at'=>$now,'reconciled_by'=>$userId,'reconciliation_source'=>'confirmed_transport_not_sent','updated_at'=>$now]);
-            $this->db->table('fiscal_documents')->where('id',$documentId)->update(['status'=>'superseded','stamp_updated_at'=>$now]);
+            $this->db->table('fiscal_documents')->where('id',$documentId)->update($this->historicalUpdate($now));
             if($draft)$this->detachDraft((int)$draft->id,$documentId,$userId);
             if(!$this->db->transStatus())throw new RuntimeException('No fue posible invalidar el documento preparado.');
             $this->db->transCommit();
@@ -95,6 +95,10 @@ final class FiscalPreparedDocumentLifecycleService
     /** Returns only an operational/protected principal; historical rows stay history. */
     public function principalDocumentId(int $draftId):int
     {
+        if($this->db->fieldExists('active_source_draft_id','fiscal_documents')){
+            $active=$this->db->table('fiscal_documents')->select('id,status')->where(['active_source_draft_id'=>$draftId,'deleted'=>0])->get(1)->getRow();
+            if($active){$id=(int)$active->id;$stamp=(bool)$this->db->table('fiscal_document_stamps')->where('fiscal_document_id',$id)->countAllResults();if(self::decision('same','same',$stamp,$this->attemptEvidence($id),(string)$active->status)!=='invalidate')return$id;}
+        }
         $draft=$this->db->table('fiscal_drafts')->select('fiscal_document_id')->where('id',$draftId)->get(1)->getRow();
         $linked=(int)($draft->fiscal_document_id??0);
         $documents=$this->db->table('fiscal_documents')->select('id,status')->where(['source_draft_id'=>$draftId,'deleted'=>0])->orderBy('id','DESC')->get()->getResult();
@@ -115,5 +119,6 @@ final class FiscalPreparedDocumentLifecycleService
         return self::decision('different','current',$stamp,$this->attemptEvidence($documentId),$status)==='protected';
     }
     private function attemptEvidence(int$documentId):array{return$this->db->table('fiscal_stamp_attempts')->select('status,requires_reconciliation,uuid,request_sent,contingency_path,response_hash,response_body_sha256,provider_code')->where('fiscal_document_id',$documentId)->get()->getResultArray();}
+    private function historicalUpdate(string$now):array{$update=['status'=>'superseded','stamp_updated_at'=>$now];if($this->db->fieldExists('active_source_draft_id','fiscal_documents'))$update['active_source_draft_id']=null;return$update;}
     private function detachDraft(int$draftId,int$documentId,int$userId):void{$this->db->table('fiscal_drafts')->where(['id'=>$draftId,'fiscal_document_id'=>$documentId])->update(['fiscal_document_id'=>null,'updated_by'=>$userId,'updated_at'=>get_current_utc_time()]);}
 }
